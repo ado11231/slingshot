@@ -260,7 +260,7 @@ slingshot env remove .env
 1. Why, in plain words.
 2. The command that fixes it.
 3. A Try again button.
-4. The last known values, greyed out.
+4. When it last answered.
 
 ### Notifications
 

@@ -255,7 +255,7 @@
 ### Needs A Terminal
 
 * **Message:** `Live views need an interactive terminal`
-* **Meaning:** `slingshot health --watch` and `slingshot top` redraw the screen, which needs a real terminal.
+* **Meaning:** `slingshot health --watch` redraws the screen, which needs a real terminal.
 * **Fix:** Run them in a terminal, or use `slingshot health` to save or pipe the output.
 
 ## Syncing Files

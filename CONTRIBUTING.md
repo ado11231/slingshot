@@ -245,4 +245,4 @@
    * What you expected.
    * What happened, with the full output.
    * Each machine's operating system, and how they connect: same network, tailnet, or different networks.
-   * The output of `slingshot info`, if the Agent can be reached.
+   * The output of `slingshot health`, if the Agent can be reached.

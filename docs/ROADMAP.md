@@ -123,7 +123,7 @@
 ## Known Limitations
 
 * `slingshot start` does not start on its own when the Agent restarts.
-* The first connection over iroh after the Agent restarts can take about 13 seconds. Later ones take about 1 second.
+* If the Agent loses power or crashes, the first connection over iroh afterwards can wait up to about 20 seconds for the old connection to time out. A normal stop, or closing the terminal running `slingshot start`, no longer causes this.
 * Edits a coding agent makes on the Agent stay there until `slingshot sync --pull`.
 * The tools step installs Docker only with `pacman`, `apt`, `dnf`, and `zypper`, and Git, Node, and Python only with the package managers it knows.
 * File watchers inside sessions, several Clients on one Agent account, and large Node and Python projects are untested. Each Client now links under a unique name, but two Clients have not been linked to one Agent at the same time yet.
@@ -230,4 +230,12 @@
 3. `slingshot health` showed the heading `archbox  Linux (Arch Linux) · 11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz (16 cores)` above the live numbers.
 4. `slingshot health --watch` listed a running `sleep 30` and an open session under the numbers, and quit on Q.
 5. The menu bar panel showed archbox online with its numbers, and no gaps around the digit 1.
+
+### Slow First Connection Over iroh: September 28, 2026
+
+* The Client was forced onto iroh with a test copy of its config whose direct addresses could not answer.
+
+1. Before the fix, closing the terminal running `slingshot start` and starting it again made the next run take 22 seconds. The Client's shared ssh connection still pointed at the old Agent.
+2. Stopping with Ctrl C was already fast, 1.4 seconds, because only Ctrl C closed iroh cleanly.
+3. After the fix, three restarts by closing the terminal each gave a first run of 1.4 to 1.6 seconds.
 

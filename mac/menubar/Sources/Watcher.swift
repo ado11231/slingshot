@@ -6,8 +6,6 @@ import Observation
 @Observable
 final class Watcher {
     private(set) var status: Status?
-    /// The last numbers the box sent, kept greyed out while it is offline.
-    private(set) var lastOnline: Status?
     private(set) var lastSeen: Date?
     /// True from Try again until the next answer, so the button can show it is working.
     private(set) var retrying = false
@@ -116,16 +114,14 @@ final class Watcher {
     }
 
     private func apply(_ status: Status) {
+        if self.status?.agent != status.agent {
+            lastSeen = nil
+        }
         self.status = status
         problem = nil
         restarts = 0
         retrying = false
-        if lastOnline?.agent != status.agent {
-            lastOnline = nil
-            lastSeen = nil
-        }
         if status.online {
-            lastOnline = status
             lastSeen = Date()
         }
     }

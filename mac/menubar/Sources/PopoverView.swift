@@ -36,8 +36,9 @@ enum Metric {
 /// gets its own color.
 let vramColor = Color.pink
 
-/// Every value beside a bar uses this, so all the numbers match.
-let valueFont = Font.system(size: 12, weight: .bold, design: .rounded).monospacedDigit()
+/// Every value beside a bar uses this, so all the numbers match. Digits keep their natural
+/// widths, because fixed width digits leave wide gaps around a 1.
+let valueFont = Font.system(size: 12, weight: .bold, design: .rounded)
 
 /// Healthy values stay plain, as on the command line. Color is for what needs attention.
 func valueColor(_ level: Level?) -> Color {
@@ -192,18 +193,6 @@ struct PopoverView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-        }
-        if let last = watcher.lastOnline {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Last known")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                metrics(last)
-            }
-            .saturation(0)
-            .opacity(0.4)
-            .allowsHitTesting(false)
         }
     }
 

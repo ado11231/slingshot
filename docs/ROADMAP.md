@@ -239,3 +239,10 @@
 2. Stopping with Ctrl C was already fast, 1.4 seconds, because only Ctrl C closed iroh cleanly.
 3. After the fix, three restarts by closing the terminal each gave a first run of 1.4 to 1.6 seconds.
 
+### Sign In Offer: September 28, 2026
+
+* Both machines ran control protocol 10.
+
+1. On archbox, Claude Code was signed in and Codex was not. `slingshot tools` printed `! Codex is not signed in on archbox` and asked to sign in.
+2. Answering no printed `Run slingshot tools any time to do this later`. The sign in itself was not run, because it needs a browser.
+

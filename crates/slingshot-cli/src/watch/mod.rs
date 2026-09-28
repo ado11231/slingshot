@@ -1,7 +1,8 @@
 //! `slingshot internal-watch`: keeps one control connection to the box and prints what the
 //! menu bar app shows and notifies, one JSON line at a time. The app starts it and closes
 //! its input to stop it, so it never outlives the app. A `retry` line on its input skips the
-//! wait before the next attempt, for the app's Try again button.
+//! wait before the next attempt, for the app's Try again button. When Slingshot is updated,
+//! the helper exits cleanly and the app starts the new program in its place.
 
 pub mod event;
 pub mod state;
@@ -26,6 +27,9 @@ const JOBS_EVERY_TICKS: u32 = 2;
 
 const TICK_LIMIT: Duration = Duration::from_secs(15);
 
+/// How often the helper checks whether its own program file was replaced.
+const UPDATE_EVERY: Duration = Duration::from_secs(5);
+
 /// Waits between attempts while the box is unreachable, longest last.
 const BACKOFF: [Duration; 4] = [
     Duration::from_secs(2),
@@ -47,6 +51,16 @@ pub async fn run(agent: Option<String>) -> anyhow::Result<i32> {
         }
         std::process::exit(0);
     });
+    if let Some(program) = Program::current() {
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(UPDATE_EVERY).await;
+                if program.replaced() {
+                    std::process::exit(0);
+                }
+            }
+        });
+    }
 
     let mut watch: Option<Watch> = None;
     let mut unconfigured = 0;
@@ -155,5 +169,56 @@ fn emit(event: &Event) {
         .and_then(|()| out.flush());
     if written.is_err() {
         std::process::exit(0);
+    }
+}
+
+/// This program's file and when it was last written. An update such as `cargo install`
+/// writes a new file, so a different time means a newer Slingshot is waiting.
+struct Program {
+    path: std::path::PathBuf,
+    modified: std::time::SystemTime,
+}
+
+impl Program {
+    fn current() -> Option<Program> {
+        Program::at(std::env::current_exe().ok()?)
+    }
+
+    fn at(path: std::path::PathBuf) -> Option<Program> {
+        let modified = std::fs::metadata(&path).ok()?.modified().ok()?;
+        Some(Program { path, modified })
+    }
+
+    /// A file that is missing for a moment during an update is not yet a new program.
+    fn replaced(&self) -> bool {
+        Program::at(self.path.clone()).is_some_and(|now| now.modified != self.modified)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_rewritten_program_file_counts_as_replaced() {
+        let path = std::env::temp_dir().join(format!(
+            "slingshot-watch-{}",
+            slingshot_core::storage::new_id()
+        ));
+        std::fs::write(&path, "old").unwrap();
+        let program = Program::at(path.clone()).unwrap();
+        assert!(!program.replaced());
+
+        let later = program.modified + Duration::from_secs(60);
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+        assert!(program.replaced());
+
+        std::fs::remove_file(&path).unwrap();
+        assert!(!program.replaced());
     }
 }

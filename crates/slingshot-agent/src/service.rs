@@ -262,6 +262,7 @@ fn agent_tools(root: &Path) -> anyhow::Result<AgentTools> {
         manager: preflight::package_manager().map(str::to_string),
         shell,
         npm_writable: tools::npm_writable(&output),
+        signed_out: tools::signed_out(&output),
     })
 }
 

@@ -33,10 +33,11 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
     let stacks = project::locate(&std::env::current_dir()?)
         .map(|local| local.stacks)
         .unwrap_or_default();
-    let offered = tools::missing(&tools::installed_here(), &before.installed, &stacks);
+    let here = tools::installed_here();
+    let offered = tools::missing(&here, &before.installed, &stacks);
     if offered.is_empty() {
         checking.done(format!("{} has every tool this machine uses", target.name));
-        return Ok(());
+        return offer_sign_in(target, &before, &here, &[]).await;
     }
     checking.warn(format!(
         "{} is missing {}",
@@ -92,10 +93,59 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
         );
     }
 
-    for tool in offered {
-        if after.installed.contains(&tool) {
-            sign_in(target, &after.shell, tool).await?;
+    for tool in &offered {
+        if after.installed.contains(tool) {
+            sign_in(target, &after.shell, *tool).await?;
         }
+    }
+    offer_sign_in(target, &after, &here, &offered).await
+}
+
+/// Tools this machine uses that are installed on the Agent but signed out, apart from
+/// `skip`, which were just installed and signed in.
+fn waiting_for_sign_in(agent: &AgentTools, here: &[Tool], skip: &[Tool]) -> Vec<Tool> {
+    agent
+        .signed_out
+        .iter()
+        .copied()
+        .filter(|tool| here.contains(tool) && !skip.contains(tool))
+        .collect()
+}
+
+/// Offer to sign in to tools that were installed some other way and never signed in, so
+/// the first use inside a session does not stop to ask.
+async fn offer_sign_in(
+    target: &Agent,
+    agent: &AgentTools,
+    here: &[Tool],
+    skip: &[Tool],
+) -> anyhow::Result<()> {
+    let waiting = waiting_for_sign_in(agent, here, skip);
+    if waiting.is_empty() {
+        return Ok(());
+    }
+    let names: Vec<&str> = waiting.iter().map(|tool| tool.name()).collect();
+    presentation::warning(format!(
+        "{} not signed in on {}",
+        match names.as_slice() {
+            [one] => format!("{one} is"),
+            _ => format!("{} are", names.join(" and ")),
+        },
+        target.name
+    ));
+    if !ssh::wants_terminal() {
+        presentation::warning("Run slingshot tools in a terminal to sign in");
+        return Ok(());
+    }
+    if !confirm(format!("Sign in on {} now?", target.name)).await? {
+        eprintln!(
+            "  {}",
+            Style::stderr().dim("Run slingshot tools any time to do this later")
+        );
+        return Ok(());
+    }
+    for tool in waiting {
+        sign_in(target, &agent.shell, tool).await?;
     }
     Ok(())
 }
@@ -221,6 +271,23 @@ fn accepted(answer: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_signed_out_tools_this_machine_uses_are_offered() {
+        let agent = AgentTools {
+            installed: vec![Tool::ClaudeCode, Tool::Codex],
+            manager: None,
+            shell: "/bin/sh".into(),
+            npm_writable: None,
+            signed_out: vec![Tool::ClaudeCode, Tool::Codex],
+        };
+        assert_eq!(
+            waiting_for_sign_in(&agent, &[Tool::Codex], &[]),
+            vec![Tool::Codex]
+        );
+        assert!(waiting_for_sign_in(&agent, &[Tool::Codex], &[Tool::Codex]).is_empty());
+        assert!(waiting_for_sign_in(&agent, &[Tool::Git], &[]).is_empty());
+    }
 
     #[test]
     fn enter_and_yes_accept_and_anything_else_declines() {

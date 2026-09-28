@@ -2,6 +2,16 @@
 members = ["crates/*"]
 resolver = "3"
 
+# Shared by every crate, so all three publish under one version and license.
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ado11231/slingshot"
+homepage = "https://github.com/ado11231/slingshot"
+keywords = ["remote", "ssh", "gpu", "development", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
 # Share dependency versions across the workspace.
 [workspace.dependencies]
 ignore = "0.4.33"

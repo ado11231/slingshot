@@ -1,7 +1,13 @@
 [package]
 name = "slingshot-core"
-version = "0.1.0"
-edition = "2024"
+description = "Shared rules and types for Slingshot, which runs heavy work on a powerful machine from a light one"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }

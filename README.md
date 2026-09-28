@@ -12,10 +12,13 @@
 
 ## What It Does
 
-* Runs builds, servers, containers, and coding agents on the powerful machine, started from your laptop.
-* Feels local: typing, colors, Ctrl C, and exit codes work as on your own machine.
-* Copies only source files. Build output such as `target` and `node_modules` stays on the powerful machine.
-* Works at home, over a VPN such as Tailscale, or from anywhere, with no account and no router setup.
+* **Remote power.** Builds, servers, containers, and coding agents run on the powerful machine, started from your laptop.
+* **Feels local.** Typing, colors, Ctrl C, and exit codes work as they do on your own machine.
+* **Your tools.** You keep your own editor, terminal, and browser. Nothing new to learn.
+* **Light sync.** Only source files are copied. Build output such as `target` and `node_modules` stays on the powerful machine.
+* **Lasting sessions.** `slingshot attach` opens a terminal that keeps running when you close the laptop.
+* **Works anywhere.** At home, over a VPN such as Tailscale, or from any network, with no account and no router setup.
+* **Secure.** The pairing code never crosses the network, each laptop gets its own ssh key, and nothing runs as another user.
 
 ## Setup
 

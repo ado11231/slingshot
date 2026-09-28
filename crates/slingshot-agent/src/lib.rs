@@ -146,12 +146,35 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
     announce(&name, &addresses, &token);
     tokio::spawn(new_codes_on_enter(Arc::clone(&agent), addresses));
 
-    tokio::signal::ctrl_c().await.ok();
-    eprintln!();
+    let stop = stopped().await?;
     endpoint.close().await;
-    presentation::success(format!("Stopped Slingshot on {name}"));
+    if stop != Stop::TerminalClosed {
+        eprintln!();
+        presentation::success(format!("Stopped Slingshot on {name}"));
+    }
 
     Ok(0)
+}
+
+#[derive(Debug, PartialEq)]
+enum Stop {
+    Asked,
+    TerminalClosed,
+}
+
+/// Wait for Ctrl C, a request to stop, or the terminal closing. Each ends with iroh closed
+/// cleanly, so linked Clients drop their shared connection at once instead of waiting on
+/// one that is gone. A closed terminal has nowhere left to print.
+async fn stopped() -> anyhow::Result<Stop> {
+    use tokio::signal::unix::{SignalKind, signal};
+
+    let mut hangup = signal(SignalKind::hangup())?;
+    let mut terminate = signal(SignalKind::terminate())?;
+    Ok(tokio::select! {
+        _ = tokio::signal::ctrl_c() => Stop::Asked,
+        _ = terminate.recv() => Stop::Asked,
+        _ = hangup.recv() => Stop::TerminalClosed,
+    })
 }
 
 /// Why the machine may sleep. Over ssh the system only allows the lock with a password,

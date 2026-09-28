@@ -283,7 +283,7 @@ sequenceDiagram
 
 ## The Menu Bar App
 
-* A small SwiftUI app in `mac/menubar/` shows the Agent's live status and sends notifications on macOS.
+* A small SwiftUI app in `crates/slingshot-cli/menubar/` shows the Agent's live status and sends notifications on macOS.
 * The app only displays information. Every decision is made in Rust.
 
 ```mermaid
@@ -362,7 +362,8 @@ slingshot/
 │   ├── slingshot-core/        shared rules and types
 │   ├── slingshot-agent/       the Agent daemon
 │   └── slingshot-cli/         the slingshot program
-├── mac/menubar/               the macOS menu bar app
+│       └── menubar/           the macOS menu bar app, shipped inside the crate
+├── LICENSE-MIT, LICENSE-APACHE
 └── docs/                      architecture, usage, troubleshooting, and roadmap
 ```
 
@@ -449,7 +450,7 @@ slingshot/
 * Unit tests sit at the bottom of the file they test.
 * `crates/slingshot-cli/tests/output.rs` runs the real program to check help text, colors, and errors.
 
-### `mac/menubar`
+### `crates/slingshot-cli/menubar`
 
 * The macOS menu bar app. It talks only to `slingshot internal-watch`.
 

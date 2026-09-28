@@ -27,7 +27,8 @@ const JOBS_EVERY_TICKS: u32 = 2;
 
 const TICK_LIMIT: Duration = Duration::from_secs(15);
 
-/// How often the helper checks whether its own program file was replaced.
+/// How often the helper checks whether its own program file was replaced. The check has
+/// its own thread, so a busy or stalled connection attempt can never delay it.
 const UPDATE_EVERY: Duration = Duration::from_secs(5);
 
 /// Waits between attempts while the box is unreachable, longest last.
@@ -52,9 +53,9 @@ pub async fn run(agent: Option<String>) -> anyhow::Result<i32> {
         std::process::exit(0);
     });
     if let Some(program) = Program::current() {
-        tokio::spawn(async move {
+        std::thread::spawn(move || {
             loop {
-                tokio::time::sleep(UPDATE_EVERY).await;
+                std::thread::sleep(UPDATE_EVERY);
                 if program.replaced() {
                     std::process::exit(0);
                 }

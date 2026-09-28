@@ -233,16 +233,24 @@ slingshot env remove .env
 
 ### Install It
 
-1. Run:
+* On a Mac, `slingshot link` offers the app when it finishes, and asks once.
+* To add it later, run:
 
-   ```sh
-   slingshot menubar
-   ```
+  ```sh
+  slingshot menubar
+  ```
 
-2. The first time, Slingshot builds the app and installs it in `~/Applications`. This takes about a minute and needs the Xcode command line tools.
-3. From then on, it starts when you log in. You can turn this off in the app.
+* The first time, Slingshot builds the app and installs it in `~/Applications`. This takes about a minute and needs the Xcode command line tools.
+* The app always starts when you log in.
+* After you update Slingshot, the app switches to the new version by itself. If the app itself changed, the panel asks you to run `slingshot menubar`, which rebuilds it.
 
-* After you update Slingshot, run `slingshot menubar` again. It rebuilds the app only when the app changed.
+### Remove It
+
+```sh
+slingshot menubar --remove
+```
+
+* It quits the app, stops it starting at login, and deletes the app, its build folder, and its settings. It shows the list and asks first.
 
 ### What It Shows
 

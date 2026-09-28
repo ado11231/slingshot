@@ -306,7 +306,10 @@ flowchart LR
 * The Try again button writes `retry` to the helper, which reconnects at once.
 * The app's Swift source is built into the `slingshot` program. `slingshot menubar` writes it to Slingshot's data folder, builds it with Swift, signs it for this machine, and installs it in `~/Applications`.
 * The installed app holds a fingerprint of the source it was built from, so `slingshot menubar` rebuilds only when that source changed.
-* `slingshot menubar` also saves the location of the `slingshot` program for the app, because apps started at login cannot find it on their own.
+* `slingshot menubar` also saves the location of the `slingshot` program for the app, because apps started at login cannot find it on their own. It restarts a running app so the app uses the current program.
+* `slingshot link` runs the same step on a Mac: it restarts an installed app, or explains the app and asks once.
+* The app is always a login item. `slingshot menubar --remove` starts it once with `--remove` to leave login items, because only the app can do that, then deletes it.
+* The helper checks every 5 seconds whether its program file was replaced, such as by `cargo install`. If so, it exits cleanly and the app starts the new program at once.
 
 ## Security
 
@@ -441,7 +444,7 @@ slingshot/
 | `info.rs` | `slingshot info` | `client` |
 | `health.rs` | `slingshot health`, and the health thresholds `watch` shares | `client`, `live` |
 | `top.rs` | `slingshot top` | `client`, `live`, `ps`, `health` |
-| `menubar.rs` | `slingshot menubar`, which also builds and installs the app | `project` |
+| `menubar.rs` | `slingshot menubar`, which builds, installs, restarts, and removes the app, and the offer at the end of `link` | `project`, `ssh`, `tools` |
 
 ### Tests
 
@@ -462,7 +465,7 @@ slingshot/
 | `Sources/PopoverView.swift` | The panel: the four resource sections, the offline screen, and the bottom rows. |
 | `Sources/Bars.swift` | The usage bar shared by every section. |
 | `Sources/Notifier.swift` | Posts macOS notifications. |
-| `Sources/LoginItem.swift` | Starts the app when you log in. |
+| `Sources/LoginItem.swift` | Makes the app start when you log in, and removes that for `--remove`. |
 
 * `Model.swift` and `watch/event.rs` describe the same format from both sides.
 * Change them together, and raise `watch::event::VERSION` when a field changes meaning or is removed.

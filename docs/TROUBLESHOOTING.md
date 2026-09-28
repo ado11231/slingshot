@@ -352,7 +352,13 @@
 
 * **Message:** The panel asks you to run `slingshot menubar` once from a terminal.
 * **Meaning:** Apps started at login cannot find the `slingshot` program on their own.
-* **Fix:** Run `slingshot menubar`. Run it again after moving or reinstalling `slingshot`.
+* **Fix:** Run `slingshot menubar`. Run it again after moving `slingshot` to another folder.
+
+### Could Not Leave Login Items
+
+* **Message:** `Could not take the app out of login items`
+* **Meaning:** `slingshot menubar --remove` starts the app once so it can leave login items, and that failed.
+* **Fix:** Turn off Slingshot in System Settings, then General, then Login Items, then run `slingshot menubar --remove` again.
 
 ### Shown As Offline
 

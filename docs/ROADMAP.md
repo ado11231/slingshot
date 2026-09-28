@@ -94,6 +94,7 @@
 9. The tool check, sign ins, and runs also search `~/.local/bin` and `~/.cargo/bin` on the Agent, where installers such as Claude Code's put programs.
 10. The tools step shows one plain command per tool, warns when tools are missing, and numbers each install.
 11. A run ended by Ctrl C or `slingshot stop` is reported as stopped, not failed.
+12. The menu bar app is always a login item, `link` offers it on a Mac, `slingshot menubar --remove` removes it, and it switches to a newly installed `slingshot` by itself.
 
 * **Remaining:**
 
@@ -209,3 +210,13 @@
 2. `slingshot run claude --version` printed the Claude Code version. The run's PATH began with `~/.local/bin` and `~/.cargo/bin`.
 3. A run stopped with `slingshot stop` ended with `! Stopped in 8.4s · exit 130`.
 4. archbox's npm folder belongs to root, so the tools step would offer `sudo npm install -g @openai/codex`.
+
+### Menu Bar Always On: September 28, 2026, Mac Only
+
+* archbox had `slingshot start` stopped, so only the Mac was tested.
+
+1. The offline panel showed the cause and the fix, with no greyed old values.
+2. `slingshot menubar` rebuilt the app, restarted it, and macOS listed it as an enabled login item.
+3. Changing the `slingshot` program file made the app start a new helper within 3 to 9 seconds, in four of five tries. In the first try, right after a rebuild, the old helper was still running 8 seconds later and had exited 20 seconds later. The cause was not found.
+4. `slingshot menubar --remove` listed what it would delete, asked, then removed the app, its build folder, and its settings. macOS listed the login item as disabled.
+5. Not tested: the offer at the end of `link`, because linking again needs archbox.

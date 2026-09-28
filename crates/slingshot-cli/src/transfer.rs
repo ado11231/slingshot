@@ -491,7 +491,7 @@ fn preview_text(
         Direction::Pull => (agent.to_string(), "this machine".to_string()),
     };
     let mut output = format!(
-        "{}\n",
+        "\n{}\n\n",
         style.heading(format!("Sync preview from {from} to {to}"))
     );
     if plan.changes.is_empty() && plan.conflicts.is_empty() && plan.kept.is_empty() {
@@ -500,11 +500,11 @@ fn preview_text(
     }
     for name in &plan.changes {
         let action = match (sender.contains_key(name), receiver.contains_key(name)) {
-            (true, false) => "Add",
-            (false, _) => "Delete",
-            (true, true) => "Update",
+            (true, false) => format!("{:<9}", "Add"),
+            (false, _) => style.paint(format!("{:<9}", "Delete"), Tone::Warning),
+            (true, true) => format!("{:<9}", "Update"),
         };
-        output.push_str(&format!("  {:<9} {name}\n", action));
+        output.push_str(&format!("  {action} {name}\n"));
     }
     for name in &plan.conflicts {
         output.push_str(&format!(
@@ -513,11 +513,18 @@ fn preview_text(
         ));
     }
     for name in &plan.kept {
-        output.push_str(&format!("  {:<9} {name} (changed only on {to})\n", "Keep"));
+        output.push_str(&format!(
+            "  {:<9} {name} {}\n",
+            "Keep",
+            style.dim(format!("(changed only on {to})"))
+        ));
     }
     output.push_str(&format!(
-        "\n  {} would be applied. Nothing was changed\n",
-        presentation::plural(plan.changes.len(), "change")
+        "\n  {}\n",
+        style.dim(format!(
+            "{} would be applied. Nothing was changed",
+            presentation::plural(plan.changes.len(), "change")
+        ))
     ));
     if !plan.conflicts.is_empty() {
         output.push_str(&format!(

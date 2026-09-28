@@ -4,10 +4,11 @@
 Output docs/media/demo.gif
 
 Set Shell zsh
-Set FontSize 15
-Set Width 1400
-Set Height 900
-Set Padding 16
+# Twice the size the README shows it at, so text stays sharp on high density screens.
+Set FontSize 24
+Set Width 1660
+Set Height 1100
+Set Padding 30
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 45ms
 

@@ -79,7 +79,7 @@
 | Option | Effect |
 | --- | --- |
 | `--name <name>` | The name the Agent is shown as. The default is its hostname. |
-| `--port <port>` | The pairing port. The default is `7433`. |
+| `--port <port>` | The pairing port. The default is `7433`. If it is taken, such as by another account's `slingshot start`, the next free port is used, and the link line says which. |
 
 ### Link The Client
 

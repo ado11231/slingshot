@@ -18,13 +18,13 @@ use std::path::PathBuf;
 
 /// Global options precede run so the remote command can receive its own flags.
 #[derive(Parser)]
-#[command(name = "slingshot", version, about = "Run heavy work on another machine", long_about = None)]
+#[command(name = "slingshot", version, about = "Use the CPU, RAM, and GPU of another machine from this one", long_about = None)]
 struct Cli {
     /// Control terminal colors.
     #[arg(long, global = true, value_parser = ["auto", "always", "never"], default_value = "auto")]
     color: String,
 
-    /// Which box to use. Defaults to the only one, or the one marked default.
+    /// Which Agent to use. Defaults to the only one, or the one marked default.
     #[arg(long, short, global = true)]
     agent: Option<String>,
 
@@ -64,9 +64,9 @@ enum Commands {
         args: Vec<String>,
     },
 
-    #[command(about = "Agent: start the daemon and print a pairing code")]
+    #[command(about = "Agent: start Slingshot and print a pairing code")]
     Start {
-        /// The name this box will be known by. Defaults to its hostname.
+        /// The name this Agent will be known by. Defaults to its hostname.
         #[arg(long)]
         name: Option<String>,
 
@@ -74,16 +74,16 @@ enum Commands {
         port: u16,
     },
 
-    #[command(about = "Client: pair with a box using the code slingshot start printed")]
+    #[command(about = "Client: link to an Agent with the code slingshot start printed")]
     Link {
         code: String,
 
-        /// Save the box under a different name than the one it calls itself.
+        /// Save the Agent under a different name than the one it calls itself.
         #[arg(long)]
         name: Option<String>,
     },
 
-    #[command(about = "Remove Slingshot access and this machine's environment files from a box")]
+    #[command(about = "Remove this machine's access and environment files from an Agent")]
     Unlink,
 
     #[command(about = "Install the developer tools this machine uses on the Agent, after asking")]
@@ -136,14 +136,14 @@ enum Commands {
         id: String,
     },
 
-    #[command(about = "The box's hardware, and its current CPU, RAM, GPU, and disk use")]
+    #[command(about = "Show the Agent's hardware, and its CPU, RAM, GPU, and disk use")]
     Health {
         /// Keep refreshing every two seconds, with running jobs, until Q or Ctrl C.
         #[arg(long)]
         watch: bool,
     },
 
-    #[command(about = "Show the box's live status in the macOS menu bar")]
+    #[command(about = "Show the Agent's live use in the macOS menu bar")]
     Menubar {
         /// Quit the app, stop it starting at login, and delete it.
         #[arg(long)]

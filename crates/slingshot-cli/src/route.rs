@@ -82,7 +82,20 @@ pub fn assume(agent: &Agent, token: &str) {
     *CHOSEN.lock().expect("route lock was poisoned") = Some((agent.name.clone(), route));
 }
 
+/// Probing waits on the network for up to a second. Inside the async runtime the wait
+/// is handed off, so other tasks on this worker keep running meanwhile.
 fn probe(agent: &Agent) -> Route {
+    use tokio::runtime::{Handle, RuntimeFlavor};
+
+    match Handle::try_current() {
+        Ok(handle) if handle.runtime_flavor() == RuntimeFlavor::MultiThread => {
+            tokio::task::block_in_place(|| probe_now(agent))
+        }
+        _ => probe_now(agent),
+    }
+}
+
+fn probe_now(agent: &Agent) -> Route {
     let candidates = agent.candidates();
     let key = iroh_key(agent);
     if let ([only], None) = (candidates.as_slice(), &key) {
@@ -192,6 +205,21 @@ mod tests {
                 key: KEY.to_string()
             }
         );
+    }
+
+    #[test]
+    fn probing_works_from_every_kind_of_runtime() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let box_ = agent("192.0.2.1", &["127.0.0.1"], Some(port));
+        let expected = Route::to("127.0.0.1");
+
+        let threads = tokio::runtime::Builder::new_multi_thread().build().unwrap();
+        assert_eq!(threads.block_on(async { probe(&box_) }), expected);
+        let single = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        assert_eq!(single.block_on(async { probe(&box_) }), expected);
     }
 
     #[test]

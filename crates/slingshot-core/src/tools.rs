@@ -35,6 +35,8 @@ pub const ALL: [Tool; 7] = [
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignIn {
     pub args: &'static [&'static str],
+    /// Arguments that exit 0 when the tool is signed in and non zero when it is not.
+    pub status: &'static [&'static str],
     /// A port on the Agent that the sign in page on the Client must reach, forwarded over ssh.
     pub forward: Option<u16>,
 }
@@ -135,10 +137,12 @@ impl Tool {
         match self {
             Tool::ClaudeCode => Some(SignIn {
                 args: &["auth", "login"],
+                status: &["auth", "status"],
                 forward: None,
             }),
             Tool::Codex => Some(SignIn {
                 args: &["login"],
+                status: &["login", "status"],
                 forward: Some(1455),
             }),
             _ => None,
@@ -199,17 +203,42 @@ pub fn with_user_folders(path: &str, home: &Path) -> String {
         .join(":")
 }
 
-/// A script that prints the program name of each tool it finds, then whether npm's global
-/// folder is writable. The Agent runs it in a login shell with the per user folders added,
-/// so it sees what a session and a run do.
+/// A script that prints the program name of each tool it finds, whether npm's global
+/// folder is writable, and each installed tool that is signed out. The Agent runs it in a
+/// login shell with the per user folders added, so it sees what a session and a run do.
 pub fn probe_script() -> String {
     let programs: Vec<&str> = ALL.iter().map(|tool| tool.program()).collect();
+    let statuses: Vec<String> = ALL
+        .iter()
+        .filter_map(|tool| {
+            let status = tool.sign_in()?.status;
+            let command = format!("{} {}", tool.program(), status.join(" "));
+            Some(format!(
+                "if command -v {program} >/dev/null 2>&1 && ! {command} >/dev/null 2>&1 </dev/null; then echo {SIGNED_OUT}{program}; fi",
+                program = tool.program()
+            ))
+        })
+        .collect();
     format!(
         "{}; for program in {}; do if command -v \"$program\" >/dev/null 2>&1; then echo \"$program\"; fi; done; \
-         if command -v npm >/dev/null 2>&1; then if [ -w \"$(npm prefix -g)\" ]; then echo {NPM_WRITABLE}; else echo {NPM_ROOT}; fi; fi",
+         if command -v npm >/dev/null 2>&1; then if [ -w \"$(npm prefix -g)\" ]; then echo {NPM_WRITABLE}; else echo {NPM_ROOT}; fi; fi; {}",
         user_path_line(),
-        programs.join(" ")
+        programs.join(" "),
+        statuses.join("; ")
     )
+}
+
+const SIGNED_OUT: &str = "signed-out:";
+
+/// The installed tools that `probe_script` found signed out.
+pub fn signed_out(output: &str) -> Vec<Tool> {
+    let names: Vec<&str> = output
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix(SIGNED_OUT))
+        .collect();
+    ALL.into_iter()
+        .filter(|tool| names.contains(&tool.program()))
+        .collect()
 }
 
 const NPM_WRITABLE: &str = "npm:writable";
@@ -404,6 +433,19 @@ mod tests {
     fn probe_output_maps_back_to_tools() {
         assert!(probe_script().contains("claude"));
         assert_eq!(found("git\ncodex\nunknown\n"), vec![Tool::Git, Tool::Codex]);
+    }
+
+    #[test]
+    fn the_probe_checks_sign_in_and_reads_it_back() {
+        let script = probe_script();
+        assert!(script.contains("! claude auth status"), "{script}");
+        assert!(script.contains("! codex login status"), "{script}");
+        assert_eq!(
+            signed_out("claude\ncodex\nsigned-out:codex\n"),
+            vec![Tool::Codex]
+        );
+        assert!(found("signed-out:codex\n").is_empty());
+        assert!(signed_out("claude\n").is_empty());
     }
 
     #[test]

@@ -7,6 +7,7 @@ use crate::tunnel;
 use anyhow::Context;
 use slingshot_core::config::Agent;
 use slingshot_core::control::{self, Request, Response};
+use slingshot_core::presentation;
 use slingshot_core::protocol;
 use slingshot_core::step::{self, Step};
 use std::process::Stdio;
@@ -115,6 +116,8 @@ pub struct Control {
     input: ChildStdin,
     output: ChildStdout,
     errors: JoinHandle<Vec<u8>>,
+    /// Set once the Agent's first answer has been checked for a different release.
+    checked_release: bool,
 }
 
 impl Control {
@@ -151,6 +154,7 @@ impl Control {
             input,
             output,
             errors,
+            checked_release: false,
         })
     }
 
@@ -164,11 +168,26 @@ impl Control {
         };
         let exchange = async {
             control::write_frame(&mut self.input, &request).await?;
-            control::read_frame::<_, Response>(&mut self.output).await
+            control::read_envelope::<_, Response>(&mut self.output).await
         };
         let answer = match tokio::time::timeout(limit, exchange).await {
             Err(_) => anyhow::bail!("{} did not answer in time", self.name),
-            Ok(Ok(Some(answer))) => answer,
+            Ok(Ok(Some(envelope))) => {
+                if !self.checked_release {
+                    self.checked_release = true;
+                    if let Some(warning) = release_differs(&self.name, envelope.release.as_deref())
+                    {
+                        presentation::warning(warning);
+                    }
+                }
+                envelope.body
+            }
+            Ok(Err(error)) if error.downcast_ref::<control::Mismatch>().is_some() => {
+                let mismatch = error
+                    .downcast_ref::<control::Mismatch>()
+                    .expect("the error was just checked to be a mismatch");
+                anyhow::bail!(update_advice(&self.name, mismatch))
+            }
             Ok(Err(error)) if matches!(self.child.try_wait(), Ok(None)) => {
                 return Err(error.context(format!(
                     "Could not understand {}. Update Slingshot on both machines",
@@ -230,6 +249,35 @@ impl Control {
     }
 }
 
+/// How to update after a protocol mismatch, naming the machine that runs the older build.
+fn update_advice(name: &str, mismatch: &control::Mismatch) -> String {
+    let theirs = mismatch
+        .release
+        .as_deref()
+        .map(|release| format!(" {release}"))
+        .unwrap_or_default();
+    match mismatch.other_is_older() {
+        true => format!(
+            "{name} runs an older Slingshot{theirs} than this machine ({}). Update it there with: cargo install slingshot-cli, then restart slingshot start",
+            control::RELEASE
+        ),
+        false => format!(
+            "This machine runs an older Slingshot ({}) than {name}{theirs}. Update it with: cargo install slingshot-cli",
+            control::RELEASE
+        ),
+    }
+}
+
+/// A warning when both machines speak the same protocol but run different releases. It
+/// works, but one side is missing fixes.
+fn release_differs(name: &str, theirs: Option<&str>) -> Option<String> {
+    let theirs = theirs.filter(|theirs| *theirs != control::RELEASE)?;
+    Some(format!(
+        "{name} runs Slingshot {theirs} and this machine runs {}. Update the older one with: cargo install slingshot-cli",
+        control::RELEASE
+    ))
+}
+
 /// Shown until the first answer arrives, which is when ssh has actually connected.
 pub fn connecting(agent: &Agent) -> Step {
     step::start(format!("Connecting to {}", agent.name))
@@ -259,4 +307,45 @@ pub async fn request(agent: &Agent, request: Request) -> anyhow::Result<Response
 
 pub fn unexpected() -> anyhow::Error {
     anyhow::anyhow!("The Agent returned an unexpected response. Update Slingshot on both machines")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_mismatch_names_the_machine_to_update() {
+        let older = control::Mismatch {
+            theirs: control::VERSION - 1,
+            release: Some("0.0.9".into()),
+        };
+        let advice = update_advice("archbox", &older);
+        assert!(
+            advice.starts_with("archbox runs an older Slingshot 0.0.9 than this machine"),
+            "{advice}"
+        );
+        assert!(advice.contains("restart slingshot start"));
+
+        let newer = control::Mismatch {
+            theirs: control::VERSION + 1,
+            release: None,
+        };
+        let advice = update_advice("archbox", &newer);
+        assert!(
+            advice.starts_with("This machine runs an older Slingshot"),
+            "{advice}"
+        );
+        assert!(
+            advice.contains(" than archbox. Update it with: cargo install slingshot-cli"),
+            "{advice}"
+        );
+    }
+
+    #[test]
+    fn only_a_different_release_is_worth_a_warning() {
+        assert_eq!(release_differs("archbox", Some(control::RELEASE)), None);
+        assert_eq!(release_differs("archbox", None), None);
+        let warning = release_differs("archbox", Some("0.0.1")).unwrap();
+        assert!(warning.starts_with("archbox runs Slingshot 0.0.1 and this machine runs"));
+    }
 }

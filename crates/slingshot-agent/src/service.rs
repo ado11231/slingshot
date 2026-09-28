@@ -380,6 +380,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let body = serde_json::to_vec(&control::Envelope {
             version: 1,
+            release: None,
             body: Request::Ping,
         })
         .unwrap();

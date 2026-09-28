@@ -8,7 +8,7 @@
 use crate::protocol::Health;
 use crate::source::Manifest;
 use crate::tools::Tool;
-use anyhow::{Context, bail, ensure};
+use anyhow::{Context, ensure};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -22,11 +22,43 @@ pub const MAX_FRAME: u32 = 16 * 1024 * 1024;
 /// Largest environment file accepted by `slingshot env add`.
 pub const MAX_ENVIRONMENT_FILE: usize = 1024 * 1024;
 
+/// This build's release, such as `0.1.0`, sent beside the protocol so a mismatch can name
+/// both. Builds from before it was added send none.
+pub const RELEASE: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Envelope<T> {
     pub version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release: Option<String>,
     pub body: T,
 }
+
+/// The other machine speaks a different control protocol. A higher protocol is a newer
+/// Slingshot, so this says which machine needs updating.
+#[derive(Debug)]
+pub struct Mismatch {
+    pub theirs: u32,
+    pub release: Option<String>,
+}
+
+impl Mismatch {
+    pub fn other_is_older(&self) -> bool {
+        self.theirs < VERSION
+    }
+}
+
+impl std::fmt::Display for Mismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Slingshot versions differ between the machines (protocol {} and {VERSION}). Update Slingshot on both machines",
+            self.theirs
+        )
+    }
+}
+
+impl std::error::Error for Mismatch {}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case")]
@@ -220,6 +252,7 @@ where
 {
     let bytes = serde_json::to_vec(&Envelope {
         version: VERSION,
+        release: Some(RELEASE.to_string()),
         body,
     })?;
     ensure!(
@@ -238,6 +271,15 @@ where
     R: AsyncRead + Unpin,
     T: DeserializeOwned,
 {
+    Ok(read_envelope(reader).await?.map(|envelope| envelope.body))
+}
+
+/// Read one frame with the sender's release. A different protocol fails with `Mismatch`.
+pub async fn read_envelope<R, T>(reader: &mut R) -> anyhow::Result<Option<Envelope<T>>>
+where
+    R: AsyncRead + Unpin,
+    T: DeserializeOwned,
+{
     let length = match reader.read_u32().await {
         Ok(length) => length,
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
@@ -251,19 +293,22 @@ where
         .context("Control connection closed in the middle of a message")?;
     let version: VersionOnly = serde_json::from_slice(&bytes).context("Invalid control message")?;
     if version.version != VERSION {
-        bail!(
-            "Slingshot versions differ between the machines (protocol {} and {VERSION}). Update Slingshot on both machines",
-            version.version
-        );
+        return Err(Mismatch {
+            theirs: version.version,
+            release: version.release,
+        }
+        .into());
     }
     let envelope: Envelope<T> =
         serde_json::from_slice(&bytes).context("Invalid control message")?;
-    Ok(Some(envelope.body))
+    Ok(Some(envelope))
 }
 
 #[derive(Deserialize)]
 struct VersionOnly {
     version: u32,
+    #[serde(default)]
+    release: Option<String>,
 }
 
 #[cfg(test)]
@@ -281,6 +326,7 @@ mod tests {
 
         let old = serde_json::to_vec(&Envelope {
             version: 2,
+            release: None,
             body: Request::Ping,
         })
         .unwrap();
@@ -299,6 +345,33 @@ mod tests {
         let (mut c, d) = tokio::io::duplex(64);
         drop(d);
         assert!(read_frame::<_, Request>(&mut c).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn frames_carry_the_release_and_a_mismatch_names_the_older_side() {
+        let (mut a, mut b) = tokio::io::duplex(1024);
+        write_frame(&mut a, &Request::Ping).await.unwrap();
+        let envelope: Envelope<Request> = read_envelope(&mut b).await.unwrap().unwrap();
+        assert_eq!(envelope.release.as_deref(), Some(RELEASE));
+
+        let older = serde_json::to_vec(
+            &serde_json::json!({"version": VERSION - 1, "body": {"operation": "ping"}}),
+        )
+        .unwrap();
+        a.write_u32(older.len() as u32).await.unwrap();
+        a.write_all(&older).await.unwrap();
+        let error = read_frame::<_, Request>(&mut b).await.unwrap_err();
+        let mismatch = error.downcast_ref::<Mismatch>().unwrap();
+        assert!(mismatch.other_is_older());
+        assert_eq!(mismatch.release, None);
+
+        let newer = serde_json::to_vec(&serde_json::json!({"version": VERSION + 1, "release": "9.9.9", "body": {"operation": "ping"}})).unwrap();
+        a.write_u32(newer.len() as u32).await.unwrap();
+        a.write_all(&newer).await.unwrap();
+        let error = read_frame::<_, Request>(&mut b).await.unwrap_err();
+        let mismatch = error.downcast_ref::<Mismatch>().unwrap();
+        assert!(!mismatch.other_is_older());
+        assert_eq!(mismatch.release.as_deref(), Some("9.9.9"));
     }
 
     #[tokio::test]

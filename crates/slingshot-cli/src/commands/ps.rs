@@ -14,11 +14,33 @@ pub async fn ps(agent: Option<String>, all: bool) -> anyhow::Result<i32> {
         return Err(unexpected());
     };
     print!(
-        "{}",
-        render(&target.name, &jobs, all, storage::now(), Style::stdout())
+        "\n{}",
+        render(
+            &target.name,
+            &jobs,
+            all,
+            storage::now(),
+            width(),
+            Style::stdout()
+        )
     );
     Ok(0)
 }
+
+/// The terminal's width, so long commands are cut to fit. Output sent to a file or a
+/// pipe keeps every command whole.
+pub fn width() -> Option<usize> {
+    use std::io::IsTerminal;
+
+    std::io::stdout()
+        .is_terminal()
+        .then(|| crossterm::terminal::size().ok())
+        .flatten()
+        .map(|(columns, _)| usize::from(columns))
+}
+
+/// Everything before the command column: the indent and five columns with their gaps.
+const BEFORE_COMMAND: usize = 2 + 8 + 2 + 7 + 2 + 12 + 2 + 16 + 2 + 9 + 2;
 
 pub async fn stop(agent: Option<String>, id: String) -> anyhow::Result<i32> {
     let config = Config::load()?;
@@ -36,21 +58,31 @@ pub async fn stop(agent: Option<String>, id: String) -> anyhow::Result<i32> {
     Ok(0)
 }
 
-pub fn render(agent: &str, jobs: &[Job], all: bool, now: u64, style: Style) -> String {
+pub fn render(
+    agent: &str,
+    jobs: &[Job],
+    all: bool,
+    now: u64,
+    width: Option<usize>,
+    style: Style,
+) -> String {
     let heading = match all {
         true => format!("Jobs on {agent}"),
         false => format!("Active jobs on {agent}"),
     };
-    let mut output = format!("{}\n", style.heading(heading));
+    let mut output = format!("{}\n\n", style.heading(heading));
     if jobs.is_empty() {
-        output.push_str(match all {
-            true => "  No jobs recorded\n",
-            false => "  Nothing running. See finished jobs with slingshot ps --all\n",
-        });
+        match all {
+            true => output.push_str("  No jobs recorded\n"),
+            false => output.push_str(&format!(
+                "  Nothing running. See finished jobs with {}\n",
+                style.paint("slingshot ps --all", Tone::Info)
+            )),
+        }
         return output;
     }
     let header = format!(
-        "{:<8}  {:<7}  {:<16}  {:<16}  {:<9}  {}",
+        "{:<8}  {:<7}  {:<12}  {:<16}  {:<9}  {}",
         "ID", "KIND", "STATE", "PROJECT", "STARTED", "COMMAND"
     );
     output.push_str(&format!("  {}\n", style.dim(header)));
@@ -69,27 +101,44 @@ pub fn render(agent: &str, jobs: &[Job], all: bool, now: u64, style: Style) -> S
         if let Some(code) = job.exit_code.filter(|_| job.state == JobState::Failed) {
             state = format!("{state} {code}");
         }
-        let project: String = job
-            .project_name
-            .clone()
-            .unwrap_or_else(|| "none".to_string())
-            .chars()
-            .take(16)
-            .collect();
+        let project = match &job.project_name {
+            Some(name) => format!("{:<16}", name.chars().take(16).collect::<String>()),
+            None => style.dim(format!("{:<16}", "home")),
+        };
         output.push_str(&format!(
-            "  {:<8}  {:<7}  {}  {:<16}  {:<9}  {}\n",
+            "  {:<8}  {:<7}  {}  {}  {:<9}  {}\n",
             storage::short_id(&job.id),
             kind,
             match tone {
-                Some(tone) => style.paint(format!("{state:<16}"), tone),
-                None => format!("{state:<16}"),
+                Some(tone) => style.paint(format!("{state:<12}"), tone),
+                None => format!("{state:<12}"),
             },
             project,
             ago(now.saturating_sub(job.started)),
-            job.command
+            fit(
+                &job.command,
+                width.map(|width| width.saturating_sub(BEFORE_COMMAND))
+            )
         ));
     }
     output
+}
+
+/// A command on one line, cut with an ellipsis when it is wider than `room`, so a long
+/// or multi line command never breaks the table.
+fn fit(command: &str, room: Option<usize>) -> String {
+    let mut lines = command.lines();
+    let mut text = lines.next().unwrap_or_default().trim_end().to_string();
+    if lines.next().is_some() {
+        text.push_str(" …");
+    }
+    match room.map(|room| room.max(10)) {
+        Some(room) if text.chars().count() > room => {
+            let kept: String = text.chars().take(room - 1).collect();
+            format!("{kept}…")
+        }
+        _ => text,
+    }
 }
 
 fn ago(seconds: u64) -> String {
@@ -128,10 +177,10 @@ mod tests {
         let mut failed = job(JobKind::Run, JobState::Failed, 1000);
         failed.exit_code = Some(101);
         let jobs = vec![job(JobKind::Session, JobState::Running, 9_950), failed];
-        let text = render("archbox", &jobs, true, 10_000, Style::new(false));
-        assert!(text.contains("Jobs on archbox"));
+        let text = render("archbox", &jobs, true, 10_000, None, Style::new(false));
+        assert!(text.starts_with("Jobs on archbox\n\n"));
         assert!(text.contains(
-            "1a2b3c4d  Session  Running           app               50s ago    cargo build --release"
+            "1a2b3c4d  Session  Running       app               50s ago    cargo build --release"
         ));
         assert!(text.contains("Failed 101"));
         assert!(text.contains("2h ago"));
@@ -149,16 +198,34 @@ mod tests {
             &[interrupted, stopped],
             true,
             1010,
+            None,
             Style::new(false),
         );
-        assert!(text.contains("Interrupted       app"), "{text}");
-        assert!(text.contains("Stopped           app"), "{text}");
+        assert!(text.contains("Interrupted   app"), "{text}");
+        assert!(text.contains("Stopped       app"), "{text}");
         assert!(!text.contains("130"), "{text}");
     }
 
     #[test]
     fn an_empty_list_explains_itself() {
-        let text = render("archbox", &[], false, 0, Style::new(false));
+        let text = render("archbox", &[], false, 0, None, Style::new(false));
         assert!(text.contains("Nothing running. See finished jobs with slingshot ps --all"));
+    }
+
+    #[test]
+    fn long_and_multi_line_commands_fit_on_one_line() {
+        assert_eq!(fit("cargo build", Some(40)), "cargo build");
+        assert_eq!(fit("sh -c 'set -e\necho hi'", None), "sh -c 'set -e …");
+        assert_eq!(fit("abcdefghijklmnop", Some(12)), "abcdefghijk…");
+        assert_eq!(fit("abcdefghijklmnop", Some(2)), "abcdefghi…");
+        assert_eq!(fit("abcdefghijklmnop", None), "abcdefghijklmnop");
+    }
+
+    #[test]
+    fn a_job_outside_a_project_runs_in_home() {
+        let mut outside = job(JobKind::Run, JobState::Completed, 1000);
+        outside.project_name = None;
+        let text = render("archbox", &[outside], true, 1010, None, Style::new(false));
+        assert!(text.contains("Completed     home"), "{text}");
     }
 }

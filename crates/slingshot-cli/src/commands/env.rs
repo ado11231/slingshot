@@ -5,7 +5,7 @@ use crate::project::{self, Local};
 use anyhow::Context;
 use slingshot_core::config::{Agent, Config};
 use slingshot_core::control::{MAX_ENVIRONMENT_FILE, Request, Response};
-use slingshot_core::presentation::{self, Style};
+use slingshot_core::presentation::{self, Style, Tone};
 use slingshot_core::source;
 use std::path::PathBuf;
 
@@ -65,14 +65,17 @@ pub async fn list(agent: Option<String>) -> anyhow::Result<i32> {
     };
     let style = Style::stdout();
     println!(
-        "{}",
+        "\n{}\n",
         style.heading(format!(
             "Environment files for {} on {}",
             local.name, remote.name
         ))
     );
     if names.is_empty() {
-        println!("  None set. Add one with slingshot env add --file <file> --target .env");
+        println!(
+            "  None set. Add one with {}",
+            style.paint("slingshot env add --file <file> --target .env", Tone::Info)
+        );
     }
     for name in names {
         println!("  {name}");

@@ -97,14 +97,16 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
             "Could not set up tools on {name}: {error:#}. Run slingshot tools to try again"
         ));
     }
+    if let Err(error) = super::menubar::offer(&name).await {
+        presentation::warning(format!(
+            "Could not add {name} to the menu bar: {error:#}. Run slingshot menubar to try again"
+        ));
+    }
     eprintln!();
     eprintln!(
         "  Try it: {}",
         Style::stderr().paint("slingshot run uname -n", Tone::Info)
     );
-    if let Some(tip) = super::menubar::tip(&name) {
-        eprintln!("  {}", Style::stderr().dim(tip));
-    }
     eprintln!();
 
     Ok(0)

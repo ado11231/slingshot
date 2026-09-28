@@ -199,7 +199,7 @@ fn manual(manager: Option<&str>) -> String {
 }
 
 /// Ask once, where Enter means yes and a closed input means no.
-async fn confirm(question: String) -> anyhow::Result<bool> {
+pub async fn confirm(question: String) -> anyhow::Result<bool> {
     eprint!("\n{question} [Y/n] ");
     let answer = tokio::task::spawn_blocking(|| {
         let mut line = String::new();

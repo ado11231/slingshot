@@ -94,7 +94,7 @@
 | `slingshot health` | Shows CPU, RAM, GPU, and disk use. Add `--watch` to keep it live. |
 | `slingshot top` | Shows live use with running jobs. |
 | `slingshot info` | Shows the Agent's hardware. |
-| `slingshot menubar` | Builds and opens the macOS menu bar app. |
+| `slingshot menubar` | Builds and opens the macOS menu bar app. `link` offers it too. |
 | `slingshot unlink` | Removes this machine's access from the Agent. |
 
 * Every option is in [USAGE.md](docs/USAGE.md).

@@ -53,26 +53,109 @@ const SOURCES: &[(&str, &str)] = &[
 #[cfg(target_os = "macos")]
 const STAMP: &str = "Contents/Resources/slingshot-source";
 
-/// A tip for the end of `link`, on the only platform with a menu bar app.
-pub fn tip(name: &str) -> Option<String> {
-    cfg!(target_os = "macos").then(|| format!("Keep {name} in your menu bar: slingshot menubar"))
+/// What `link` does about the menu bar app when it finishes.
+#[cfg(target_os = "macos")]
+#[derive(Debug, PartialEq)]
+enum Offer {
+    /// The app is installed, so restart it to show the new Agent.
+    Restart,
+    /// Explain what the app is and ask once.
+    Ask,
+    /// Asking cannot work here, so say how to add it later.
+    Later(&'static str),
+}
+
+#[cfg(target_os = "macos")]
+fn offer_for(installed: bool, swift: bool, terminal: bool) -> Offer {
+    match (installed, swift, terminal) {
+        (true, _, _) => Offer::Restart,
+        (false, false, _) => Offer::Later(
+            "Install the Xcode command line tools with xcode-select --install, then run slingshot menubar",
+        ),
+        (false, true, false) => Offer::Later("Run slingshot menubar in a terminal to add it"),
+        (false, true, true) => Offer::Ask,
+    }
+}
+
+/// The end of `link`: keep the menu bar app showing the Agent, installing it after one yes.
+#[cfg(not(target_os = "macos"))]
+pub async fn offer(_name: &str) -> anyhow::Result<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+pub async fn offer(name: &str) -> anyhow::Result<()> {
+    use slingshot_core::presentation::Style;
+    use slingshot_core::telemetry;
+
+    let style = Style::stderr();
+    match offer_for(
+        find_app().is_some(),
+        telemetry::is_installed("swift"),
+        crate::ssh::wants_terminal(),
+    ) {
+        Offer::Restart => {
+            show(name, None).await?;
+        }
+        Offer::Later(how) => {
+            eprintln!(
+                "  {}",
+                style.dim(format!("Keep {name} in your menu bar. {how}"))
+            );
+        }
+        Offer::Ask => {
+            eprintln!(
+                "\n  The menu bar app shows {name}'s CPU, RAM, and GPU, and notifies you when a run finishes."
+            );
+            eprintln!(
+                "  {}",
+                style.dim(
+                    "It is built with Swift into ~/Applications/Slingshot.app and starts at login."
+                )
+            );
+            if super::tools::confirm("Add it to your menu bar now?".to_string()).await? {
+                show(name, None).await?;
+            } else {
+                eprintln!(
+                    "  {}",
+                    style.dim("Run slingshot menubar any time to do this later")
+                );
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(not(target_os = "macos"))]
-pub async fn menubar(_agent: Option<String>) -> anyhow::Result<i32> {
+pub async fn menubar(_agent: Option<String>, _remove: bool) -> anyhow::Result<i32> {
     anyhow::bail!(
         "The menu bar app is macOS only for now. slingshot health --watch shows the same numbers in a terminal"
     )
 }
 
 #[cfg(target_os = "macos")]
-pub async fn menubar(agent: Option<String>) -> anyhow::Result<i32> {
-    use anyhow::Context;
+pub async fn menubar(agent: Option<String>, remove: bool) -> anyhow::Result<i32> {
     use slingshot_core::config::Config;
     use slingshot_core::presentation::{self, home_path};
 
+    if remove {
+        return uninstall().await;
+    }
     let config = Config::load()?;
     let target = config.resolve(agent.as_deref())?;
+    let app = show(&target.name, agent.as_deref()).await?;
+    presentation::detail("App", home_path(&app));
+    presentation::detail("Starts", "at login, remove with slingshot menubar --remove");
+    Ok(0)
+}
+
+/// Build the app if its source changed, tell it where this program is, and start it again,
+/// so it always runs the helper from the Slingshot that is installed now.
+#[cfg(target_os = "macos")]
+async fn show(name: &str, agent: Option<&str>) -> anyhow::Result<std::path::PathBuf> {
+    use anyhow::Context;
+    use slingshot_core::presentation::{self, home_path};
+
     let app = match find_app().filter(|app| up_to_date(app)) {
         Some(app) => app,
         None => tokio::task::spawn_blocking(install)
@@ -89,12 +172,15 @@ pub async fn menubar(agent: Option<String>) -> anyhow::Result<i32> {
         "slingshotPath",
         &program.to_string_lossy(),
     ])?;
-    match &agent {
-        Some(name) => defaults(&["write", BUNDLE_ID, "agent", name])?,
+    match agent {
+        Some(agent) => defaults(&["write", BUNDLE_ID, "agent", agent])?,
         None => {
             let _ = defaults(&["delete", BUNDLE_ID, "agent"]);
         }
     }
+    tokio::task::spawn_blocking(quit_running_app)
+        .await
+        .context("Stopping the old menu bar app stopped unexpectedly")?;
     let opened = std::process::Command::new("open")
         .arg(&app)
         .status()
@@ -104,10 +190,62 @@ pub async fn menubar(agent: Option<String>) -> anyhow::Result<i32> {
         "Could not open {}. Try opening it from Finder",
         home_path(&app)
     );
+    presentation::success(format!("{name} is in your menu bar"));
+    Ok(app)
+}
 
-    presentation::success(format!("{} is in your menu bar", target.name));
+/// Take the app out of login items, then delete it, its build folder, and its settings.
+/// Only the app itself can leave login items, so it is started once with `--remove`.
+#[cfg(target_os = "macos")]
+async fn uninstall() -> anyhow::Result<i32> {
+    use anyhow::Context;
+    use slingshot_core::presentation::{self, home_path};
+    use std::fs;
+
+    let Some(app) = find_app() else {
+        presentation::success("The menu bar app is not installed");
+        return Ok(0);
+    };
+    let source = crate::project::client_root()?.join("menubar");
+    eprintln!("\n  This quits the menu bar app, stops it starting at login, and deletes:");
     presentation::detail("App", home_path(&app));
-    presentation::detail("Starts", "at login, turn off in the app's menu");
+    if source.exists() {
+        presentation::detail("Build", home_path(&source));
+    }
+    presentation::detail("Settings", BUNDLE_ID);
+    anyhow::ensure!(
+        crate::ssh::wants_terminal(),
+        "Run slingshot menubar --remove in a terminal to confirm"
+    );
+    if !super::tools::confirm("Remove the menu bar app?".to_string()).await? {
+        return Ok(0);
+    }
+
+    tokio::task::spawn_blocking(quit_running_app)
+        .await
+        .context("Stopping the menu bar app stopped unexpectedly")?;
+    let left = std::process::Command::new("open")
+        .args(["-n", "-W"])
+        .arg(&app)
+        .args(["--args", "--remove"])
+        .status()
+        .context("Could not start open")?;
+    anyhow::ensure!(
+        left.success(),
+        "Could not take the app out of login items. Remove Slingshot in System Settings, then General, then Login Items"
+    );
+    fs::remove_dir_all(&app).with_context(|| {
+        format!(
+            "Could not delete {}. Move it to the Trash from Finder",
+            app.display()
+        )
+    })?;
+    if source.exists() {
+        fs::remove_dir_all(&source)
+            .with_context(|| format!("Could not delete {}", source.display()))?;
+    }
+    let _ = defaults(&["delete", BUNDLE_ID]);
+    presentation::success("Removed the menu bar app");
     Ok(0)
 }
 
@@ -266,22 +404,29 @@ fn assemble(
 /// Ask a running copy of the app to quit and wait briefly, so the new copy can replace it.
 #[cfg(target_os = "macos")]
 fn quit_running_app() {
+    if !app_running() {
+        return;
+    }
     let _ = std::process::Command::new("osascript")
         .args(["-e", &format!("quit app id \"{BUNDLE_ID}\"")])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status();
     for _ in 0..10 {
-        let running = std::process::Command::new("pgrep")
-            .args(["-f", "Slingshot.app/Contents/MacOS/Slingshot"])
-            .stdout(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success());
-        if !running {
+        if !app_running() {
             return;
         }
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
+}
+
+#[cfg(target_os = "macos")]
+fn app_running() -> bool {
+    std::process::Command::new("pgrep")
+        .args(["-f", "Slingshot.app/Contents/MacOS/Slingshot"])
+        .stdout(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
 }
 
 #[cfg(target_os = "macos")]
@@ -313,6 +458,18 @@ mod tests {
                 "{name} is missing from SOURCES"
             );
         }
+    }
+
+    #[test]
+    fn link_restarts_an_installed_app_and_asks_only_when_it_can_build() {
+        assert_eq!(offer_for(true, false, false), Offer::Restart);
+        assert_eq!(offer_for(false, true, true), Offer::Ask);
+        assert!(
+            matches!(offer_for(false, false, true), Offer::Later(how) if how.contains("xcode-select --install"))
+        );
+        assert!(
+            matches!(offer_for(false, true, false), Offer::Later(how) if how.contains("slingshot menubar"))
+        );
     }
 
     #[test]

@@ -1,19 +1,11 @@
 import Foundation
 import ServiceManagement
 
-/// Starting at login is what makes installing once enough. The app turns it on the first
-/// time it runs, and the toggle in the panel turns it off.
+/// Starting at login is what makes installing once enough, so the app is always a login
+/// item. `slingshot menubar --remove` starts the app with `--remove` to take it off.
 enum LoginItem {
-    private static let offeredKey = "loginItemOffered"
-
-    static var enabled: Bool {
-        SMAppService.mainApp.status == .enabled
-    }
-
-    static func enableOnFirstLaunch() {
-        let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: offeredKey) else { return }
-        defaults.set(true, forKey: offeredKey)
+    static func enable() {
+        guard SMAppService.mainApp.status != .enabled else { return }
         set(true)
     }
 

@@ -51,7 +51,6 @@ func valueColor(_ level: Level?) -> Color {
 
 struct PopoverView: View {
     let watcher: Watcher
-    @State private var startsAtLogin = LoginItem.enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -198,14 +197,6 @@ struct PopoverView: View {
 
     private var footer: some View {
         VStack(spacing: 2) {
-            MenuRow(icon: "arrow.clockwise.circle", title: "Open at login") {
-                startsAtLogin.toggle()
-            } trailing: {
-                Toggle("", isOn: $startsAtLogin)
-                    .toggleStyle(.switch)
-                    .controlSize(.mini)
-                    .labelsHidden()
-            }
             MenuRow(icon: "power", title: "Quit Slingshot") {
                 NSApplication.shared.terminate(nil)
             } trailing: {
@@ -216,10 +207,6 @@ struct PopoverView: View {
             .keyboardShortcut("q")
         }
         .padding(.horizontal, -8)
-        .onAppear { startsAtLogin = LoginItem.enabled }
-        .onChange(of: startsAtLogin) { _, on in
-            if on != LoginItem.enabled { LoginItem.set(on) }
-        }
     }
 }
 

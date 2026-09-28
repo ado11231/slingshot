@@ -126,9 +126,15 @@ final class Watcher {
         }
     }
 
-    /// The helper only exits on its own when something is wrong, so show why and try again.
+    /// The helper exits cleanly when Slingshot was updated, so the new program takes over at
+    /// once. Any other exit means something is wrong, so show why and try again.
     private func ended(_ ended: Process) {
         guard ended === process, !stopping else { return }
+        if ended.terminationStatus == 0 {
+            process = nil
+            start()
+            return
+        }
         let message = String(decoding: errors, as: UTF8.self)
             .split(separator: "\n")
             .last

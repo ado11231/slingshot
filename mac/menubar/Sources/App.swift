@@ -21,10 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifier = Notifier()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if CommandLine.arguments.contains("--remove") {
+            LoginItem.set(false)
+            NSApplication.shared.terminate(nil)
+            return
+        }
         notifier.setUp()
         watcher.onNotice = { [notifier] notice in notifier.post(notice) }
         watcher.start()
-        LoginItem.enableOnFirstLaunch()
+        LoginItem.enable()
     }
 
     /// `slingshot menubar` opens the app again after saving a new program path or box.

@@ -220,3 +220,14 @@
 3. Changing the `slingshot` program file made the app start a new helper within 3 to 9 seconds, in four of five tries. In the first try, right after a rebuild, the old helper was still running 8 seconds later and had exited 20 seconds later. The cause was not found.
 4. `slingshot menubar --remove` listed what it would delete, asked, then removed the app, its build folder, and its settings. macOS listed the login item as disabled.
 5. Not tested: the offer at the end of `link`, because linking again needs archbox.
+
+### Two Machines: September 28, 2026
+
+* Both machines ran the code from #34, control protocol 9, over the tailnet and local network.
+
+1. `slingshot start` printed `▶ Slingshot 0.1.0 is running on archbox`.
+2. `slingshot link` paired again, found every tool, and ended with `✓ archbox is in your menu bar`, restarting the installed app.
+3. `slingshot health` showed the heading `archbox  Linux (Arch Linux) · 11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz (16 cores)` above the live numbers.
+4. `slingshot health --watch` listed a running `sleep 30` and an open session under the numbers, and quit on Q.
+5. The menu bar panel showed archbox online with its numbers, and no gaps around the digit 1.
+

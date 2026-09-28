@@ -62,7 +62,7 @@
    slingshot menubar
    ```
 
-   * Run it again after changing the app. It rebuilds whenever the app's source changed.
+   * Run it again after changing the app. It rebuilds when the app's source changed.
 
 ## Building And Testing
 
@@ -129,15 +129,15 @@
 * **You are the author.** Opening a pull request makes you responsible for every line in it.
 * **Understand what you submit.** You must be able to explain what each change does and why. If you cannot, the pull request will be closed.
 * **Verify it yourself.** Run the checks and the feature, and read the output. AI tools often call functions that do not exist, miss edge cases, or change more than asked.
-* **Keep it small.** Large changes are cheap to generate and expensive to review.
-* **Remove the noise.** Delete unused code, obvious comments, and anything the change does not need.
+* **Keep it small.** A small pull request is reviewed sooner and more carefully.
+* **Cut what is not needed.** Delete unused code, comments that repeat the code, and anything the change does not need.
 * AI agents working in this repository directly must also follow [CLAUDE.md](CLAUDE.md).
 
 ## Code Standards
 
 ### Structure
 
-* Dependencies flow one way: `slingshot-cli` uses `slingshot-agent` and `slingshot-core`, and `slingshot-agent` uses `slingshot-core`.
+* `slingshot-core` uses neither of the other crates. `slingshot-agent` uses `slingshot-core`. `slingshot-cli` uses both.
 * Wrap existing tools. Slingshot uses `ssh`, `rsync`, `tmux`, `docker`, and `iroh`, and never writes its own versions.
 * Describe machines as Client and Agent, never as Mac and Linux. Only the menu bar app may be macOS specific.
 * Never write fixed paths such as `/Users/...` or `/home/...`. Use the `directories` crate.
@@ -146,7 +146,7 @@
 ### Rust
 
 * Errors use `anyhow`. Every visible error says what went wrong and how to fix it.
-* A failing user command is not a Slingshot error. Report its exit code faithfully.
+* A user command that fails is not a Slingshot error. Pass its exit code through unchanged.
 * Use `tokio` for async code, `tracing` for logs, and `clap` for command line parsing.
 * Never use `unwrap` outside tests. Use `?`, or `expect` with the reason failure is impossible.
 * Quote every argument sent to the Agent on its own. Never join them into one shell command.
@@ -157,7 +157,7 @@
 
 * Add a short comment above an item when its purpose is not obvious. Explain why, not what.
 * Keep comments out of function bodies.
-* No commented out code, and no `TODO` notes without an issue number.
+* No commented out code, and no `TODO`, `FIXME`, or `XXX` notes. Open an issue instead.
 
 ### Dependencies
 
@@ -231,7 +231,7 @@
 | Idea | Why It Does Not Fit |
 | --- | --- |
 | Sharing RAM over the network | A network is about a hundred thousand times slower than RAM. |
-| Remote desktop or screen streaming | Sunshine and Moonlight already do this well. |
+| Remote desktop or screen streaming | Sunshine and Moonlight already do this. |
 | Copying or mounting build output | `target`, `node_modules`, virtual environments, and caches stay on the Agent. Copying them makes Slingshot too slow. |
 | Syncing environment files as source | `.env`, `.env.*`, `*.env`, and `.envrc` often hold secrets. They are never synced. |
 | Requiring an account or VPN | A VPN is used when present, never required. iroh needs no account and no open router port. |

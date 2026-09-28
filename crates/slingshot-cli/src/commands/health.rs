@@ -35,6 +35,7 @@ pub async fn health(agent: Option<String>, watch: bool) -> anyhow::Result<i32> {
             &jobs,
             false,
             storage::now(),
+            super::ps::width(),
             style,
         ));
         Ok(body)
@@ -98,7 +99,7 @@ pub fn render(name: &str, specs: Option<&Specs>, health: &Health, style: Style) 
             .temperature_c
             .map(|value| {
                 let (label, tone) = rating(value as f64, TEMPERATURE, ["Normal", "Warm", "Hot"]);
-                mark(format!("{value}°C  {label}"), tone, style)
+                mark(format!("{value}°C"), label, tone, style)
             })
             .unwrap_or_else(|| "Unavailable".to_string());
         output.push_str(&row("Temperature", temperature));
@@ -125,11 +126,12 @@ fn workspace(free_mib: u64, style: Style) -> String {
     }
 }
 
-/// Color only a value that needs attention. A healthy one stays plain.
-fn mark(text: String, tone: Tone, style: Style) -> String {
+/// Color only a value that needs attention. A healthy one stays plain, with its rating
+/// dimmed so the number stands out.
+fn mark(value: String, label: &str, tone: Tone, style: Style) -> String {
     match tone {
-        Tone::Good => text,
-        tone => style.paint(text, tone),
+        Tone::Good => format!("{value}  {}", style.dim(label)),
+        tone => style.paint(format!("{value}  {label}"), tone),
     }
 }
 
@@ -183,7 +185,7 @@ fn load(percent: f64, style: Style) -> String {
         return "Unavailable".to_string();
     }
     let (label, tone) = rating(percent, LOAD, ["Light", "Busy", "High load"]);
-    mark(format!("{percent:.1}%  {label}"), tone, style)
+    mark(format!("{percent:.1}%"), label, tone, style)
 }
 
 fn memory(used: u64, total: u64, style: Style) -> String {
@@ -194,11 +196,12 @@ fn memory(used: u64, total: u64, style: Style) -> String {
     let (label, tone) = rating(percent, MEMORY, ["Available", "Limited", "Low free memory"]);
     mark(
         format!(
-            "{} / {} used, {} free  {label}",
+            "{} / {} used, {} free",
             capacity(used),
             capacity(total),
             capacity(total - used)
         ),
+        label,
         tone,
         style,
     )
@@ -263,15 +266,15 @@ mod tests {
     #[test]
     fn temperature_thresholds() {
         let mut health = sample();
-        for (temperature, label, color) in [
-            (74, "Normal", ""),
-            (75, "Warm", "\x1b[33m"),
-            (84, "Warm", "\x1b[33m"),
-            (85, "Hot", "\x1b[31m"),
+        for (temperature, expected) in [
+            (74, "  74°C  \x1b[2mNormal"),
+            (75, "  \x1b[33m75°C  Warm"),
+            (84, "  \x1b[33m84°C  Warm"),
+            (85, "  \x1b[31m85°C  Hot"),
         ] {
             health.gpus[0].temperature_c = Some(temperature);
             let output = render("archbox", None, &health, Style::new(true));
-            assert!(output.contains(&format!("  {color}{temperature}°C  {label}")));
+            assert!(output.contains(expected), "{output}");
         }
     }
 

@@ -77,7 +77,7 @@
 * If you changed the menu bar app, also run:
 
   ```sh
-  swift build -c release --package-path mac/menubar
+  swift build -c release --package-path crates/slingshot-cli/menubar
   ```
 
 * CI runs the same checks, and the menu bar build, on Linux and macOS for every pull request.

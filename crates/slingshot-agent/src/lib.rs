@@ -446,8 +446,9 @@ fn announce(name: &str, addresses: &[SocketAddr], token: &str) {
     let style = Style::stderr();
     eprintln!();
     eprintln!(
-        "{} Slingshot is running on {}",
+        "{} Slingshot {} is running on {}",
         style.paint("▶", Tone::Info),
+        style.dim(env!("CARGO_PKG_VERSION")),
         style.paint(name, Tone::Info)
     );
     eprintln!();

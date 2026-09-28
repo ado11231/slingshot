@@ -1,7 +1,14 @@
 [package]
 name = "slingshot-cli"
-version = "0.1.0"
-edition = "2024"
+description = "Use the CPU, RAM, and GPU of a powerful machine from your laptop, in your own editor and terminal"
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 # The package is slingshot-cli, but the program it produces is called slingshot.
 [[bin]]
@@ -9,8 +16,8 @@ name = "slingshot"
 path = "src/main.rs"
 
 [dependencies]
-slingshot-core = { path = "../slingshot-core" }
-slingshot-agent = { path = "../slingshot-agent" }
+slingshot-core = { path = "../slingshot-core", version = "0.1.0" }
+slingshot-agent = { path = "../slingshot-agent", version = "0.1.0" }
 anyhow = { workspace = true }
 iroh = { workspace = true }
 clap = { workspace = true }

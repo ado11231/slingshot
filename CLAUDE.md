@@ -155,7 +155,7 @@
 ### Formats And Versions
 
 * **Control messages:** any change to a `Request` or `Response` shape in `slingshot-core/src/control.rs` raises `control::VERSION`, currently 9.
-* **Menu bar lines:** if a field in `slingshot-cli/src/watch/event.rs` changes meaning or is removed, raise `watch::event::VERSION` and change `mac/menubar/Sources/Model.swift` in the same commit.
+* **Menu bar lines:** if a field in `slingshot-cli/src/watch/event.rs` changes meaning or is removed, raise `watch::event::VERSION` and change `slingshot-cli/menubar/Sources/Model.swift` in the same commit.
 * **Pairing messages:** a change to the pairing messages in `slingshot-core/src/protocol.rs` means both machines must update before the next link. A change to `Specs` or `Health`, which are saved or sent after pairing, forces every user to link again. Say which one explicitly.
 
 ### Security
@@ -220,7 +220,7 @@
 * If you changed the menu bar app, also run:
 
   ```sh
-  swift build -c release --package-path mac/menubar
+  swift build -c release --package-path crates/slingshot-cli/menubar
   ```
 
 * Every rule or decision you add or change gets a unit test in the same file's `tests` module.
@@ -260,7 +260,7 @@
 * Commit messages follow `type: summary`, with type `feat`, `fix`, `refactor`, `docs`, or `test`. The body explains why.
 * Make small commits that each build and pass tests.
 * **No AI attribution.** Never add `Co-Authored-By` lines, "Generated with" lines, or tool names. Commits belong to the person who asked for them.
-* Never commit secrets, build output, or anything in `mac/menubar/.build/`.
+* Never commit secrets, build output, or anything in `crates/slingshot-cli/menubar/.build/`.
 
 ---
 

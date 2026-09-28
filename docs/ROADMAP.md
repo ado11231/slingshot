@@ -39,7 +39,7 @@
 * `slingshot start` checks the Agent for an ssh server, `rsync`, and `tmux`, and prints a single use pairing code.
 * `slingshot link` installs the Client's key on the Agent. The Client needs no ssh server.
 * `slingshot run` runs a command on the Agent with live output, typing, Ctrl C, and the real exit code.
-* `slingshot info` and `slingshot health` show the Agent's hardware and current use.
+* `slingshot health` shows the Agent's hardware and current use.
 
 ### Phase 2: Mounting The Project On The Agent
 
@@ -60,7 +60,7 @@
 * `slingshot sync` pushes changes, pulls them with `--pull`, and previews with `--check`.
 * `slingshot env` stores environment files on the Agent, apart from the source copy.
 * `slingshot ps` and `slingshot stop` list and stop jobs.
-* `slingshot health --watch` and `slingshot top` refresh live.
+* `slingshot health --watch` refreshes live, with running jobs.
 * `slingshot unlink` removes this Client's key and environment files from the Agent.
 
 ## In Progress

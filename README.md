@@ -91,9 +91,7 @@
 | `slingshot env` | Keeps `.env` files on the Agent, apart from your source. |
 | `slingshot ps` | Lists running jobs. |
 | `slingshot stop <id>` | Stops a job. |
-| `slingshot health` | Shows CPU, RAM, GPU, and disk use. Add `--watch` to keep it live. |
-| `slingshot top` | Shows live use with running jobs. |
-| `slingshot info` | Shows the Agent's hardware. |
+| `slingshot health` | Shows the Agent's hardware, and its CPU, RAM, GPU, and disk use. Add `--watch` to keep it live, with running jobs. |
 | `slingshot menubar` | Builds and opens the macOS menu bar app. `link` offers it too. |
 | `slingshot unlink` | Removes this machine's access from the Agent. |
 

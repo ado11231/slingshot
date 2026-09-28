@@ -211,10 +211,10 @@ slingshot env remove .env
 
 | Command | Shows |
 | --- | --- |
-| `slingshot info` | Hardware: CPU, RAM, GPU, disk, and tools. Saved when linking, so it is instant. Add `--refresh` to ask again. |
-| `slingshot health` | Current CPU, RAM, GPU, VRAM, disk, and project space. |
-| `slingshot health --watch` | The same, refreshed every two seconds. Press Q or Ctrl C to leave. |
-| `slingshot top` | Live resources, with running jobs listed underneath. |
+| `slingshot health` | The Agent's system and processor, then current CPU, RAM, GPU, VRAM, disk, and project space. |
+| `slingshot health --watch` | The same, refreshed every two seconds, with running jobs listed underneath. Press Q or Ctrl C to leave. |
+
+* The system and processor were saved when linking, so they need no extra request.
 
 * Values turn yellow or red only when they need attention.
 

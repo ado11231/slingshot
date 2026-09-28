@@ -5,7 +5,7 @@
 //! length prefixed JSON frame, and one connection may carry several requests. A source
 //! transfer lease lives exactly as long as the connection that took it.
 
-use crate::protocol::{Health, Specs};
+use crate::protocol::Health;
 use crate::source::Manifest;
 use crate::tools::Tool;
 use anyhow::{Context, bail, ensure};
@@ -14,7 +14,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Wire version of this control protocol. Both machines must agree on it, so any change
 /// to a request or response shape has to raise it.
-pub const VERSION: u32 = 8;
+pub const VERSION: u32 = 9;
 
 /// Largest frame in either direction. Manifests for very large projects are the limit.
 pub const MAX_FRAME: u32 = 16 * 1024 * 1024;
@@ -32,7 +32,6 @@ pub struct Envelope<T> {
 #[serde(tag = "operation", rename_all = "snake_case")]
 pub enum Request {
     Ping,
-    Info,
     Health,
     /// Resource warnings worth showing before starting work.
     Warnings,
@@ -97,7 +96,6 @@ pub enum Response {
     Pong,
     Done,
     Error(String),
-    Info(Specs),
     Health(Health),
     Warnings(Vec<String>),
     Project(ProjectInfo),

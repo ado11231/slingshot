@@ -421,7 +421,7 @@ slingshot/
 | `transfer.rs` | Performs a sync: lists files, plans, calls `rsync`, and reports. | `client`, `project`, `route` | `run`, `attach`, `sync` |
 | `project.rs` | Finds the current project and its ID on each Agent. | none | `transfer`, `tunnel`, most commands |
 | `keys.rs` | Creates Slingshot's own ssh key. | none | `link` |
-| `live.rs` | Full screen views that refresh until you press Q or Ctrl C. | none | `health`, `top` |
+| `live.rs` | Full screen views that refresh until you press Q or Ctrl C. | none | `health` |
 | `watch/mod.rs` | `slingshot internal-watch`: polls the Agent and prints lines for the menu bar app. | `client`, `route`, `watch/event`, `watch/state` | `main` |
 | `watch/event.rs` | The line format, value levels, and plain explanations of failures. | `commands/health` | `watch/mod`, `watch/state` |
 | `watch/state.rs` | Decides when a notification is due, and writes its wording. | `commands/health`, `watch/event` | `watch/mod` |
@@ -441,9 +441,7 @@ slingshot/
 | `sync.rs` | `slingshot sync` | `project`, `transfer` |
 | `env.rs` | `slingshot env` | `client`, `project` |
 | `ps.rs` | `slingshot ps` and `slingshot stop` | `client` |
-| `info.rs` | `slingshot info` | `client` |
-| `health.rs` | `slingshot health`, and the health thresholds `watch` shares | `client`, `live` |
-| `top.rs` | `slingshot top` | `client`, `live`, `ps`, `health` |
+| `health.rs` | `slingshot health`, with running jobs in `--watch`, and the health thresholds `watch` shares | `client`, `live`, `ps` |
 | `menubar.rs` | `slingshot menubar`, which builds, installs, restarts, and removes the app, and the offer at the end of `link` | `project`, `ssh`, `tools` |
 
 ### Tests

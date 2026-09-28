@@ -37,7 +37,7 @@ fn help_is_readable_and_uses_stdout() {
         Some("env"),
         Some("ps"),
         Some("stop"),
-        Some("top"),
+        Some("menubar"),
     ] {
         let mut args = vec!["--color", "never"];
         if let Some(command) = command {

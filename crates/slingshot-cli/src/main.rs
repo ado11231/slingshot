@@ -136,22 +136,12 @@ enum Commands {
         id: String,
     },
 
-    #[command(about = "Static specs of the box, from the cache")]
-    Info {
-        /// Ask the box again instead of using what was saved at pairing.
-        #[arg(long)]
-        refresh: bool,
-    },
-
-    #[command(about = "Current CPU, RAM, GPU, and disk usage")]
+    #[command(about = "The box's hardware, and its current CPU, RAM, GPU, and disk use")]
     Health {
-        /// Keep refreshing every two seconds until Q or Ctrl C.
+        /// Keep refreshing every two seconds, with running jobs, until Q or Ctrl C.
         #[arg(long)]
         watch: bool,
     },
-
-    #[command(about = "Live resource use with active Slingshot jobs")]
-    Top,
 
     #[command(about = "Show the box's live status in the macOS menu bar")]
     Menubar {
@@ -247,9 +237,7 @@ async fn main() {
         },
         Commands::Ps { all } => commands::ps::ps(cli.agent, all).await,
         Commands::Stop { id } => commands::ps::stop(cli.agent, id).await,
-        Commands::Info { refresh } => commands::info::info(cli.agent, refresh).await,
         Commands::Health { watch } => commands::health::health(cli.agent, watch).await,
-        Commands::Top => commands::top::top(cli.agent).await,
         Commands::Menubar { remove } => commands::menubar::menubar(cli.agent, remove).await,
     };
 

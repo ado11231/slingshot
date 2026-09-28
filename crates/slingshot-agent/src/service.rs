@@ -200,7 +200,6 @@ fn with_lease(
 
 fn respond(root: &Path, name: &str, request: Request) -> anyhow::Result<Response> {
     Ok(match request {
-        Request::Info => Response::Info(telemetry::specs(name)),
         Request::Health => Response::Health(telemetry::health(Some(root))),
         Request::Warnings => Response::Warnings(telemetry::warnings(root)),
         Request::Open(project) => Response::Project(projects::open(root, &project)?),

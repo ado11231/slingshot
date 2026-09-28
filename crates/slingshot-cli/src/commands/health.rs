@@ -1,28 +1,43 @@
-//! Agent resource use: one snapshot, or a live view with `--watch`.
+//! Agent resource use: one snapshot, or a live view with running jobs with `--watch`.
 
 use crate::client::{self, Control, unexpected};
 use crate::live;
 use slingshot_core::config::Config;
 use slingshot_core::control::{Request, Response};
 use slingshot_core::presentation::{Style, Tone, capacity, row};
-use slingshot_core::protocol::Health;
+use slingshot_core::protocol::{Health, Specs};
+use slingshot_core::storage;
 
 pub async fn health(agent: Option<String>, watch: bool) -> anyhow::Result<i32> {
     let config = Config::load()?;
     let target = config.resolve(agent.as_deref())?;
+    let specs = target.specs.as_ref();
     if !watch {
         let Response::Health(health) = client::fetch(target, Request::Health).await? else {
             return Err(unexpected());
         };
-        print!("{}", render(&target.name, &health, Style::stdout()));
+        print!("{}", render(&target.name, specs, &health, Style::stdout()));
         return Ok(0);
     }
     live::require_terminal()?;
     let control = tokio::sync::Mutex::new(Control::connect(target).await?);
     let name = target.name.clone();
     live::show(|| async {
-        let health = fetch(&mut *control.lock().await).await?;
-        Ok(render(&name, &health, Style::stdout()))
+        let mut control = control.lock().await;
+        let health = fetch(&mut control).await?;
+        let Response::Jobs(jobs) = control.call(Request::Jobs { all: false }).await? else {
+            return Err(unexpected());
+        };
+        let style = Style::stdout();
+        let mut body = render(&name, specs, &health, style);
+        body.push_str(&super::ps::render(
+            &name,
+            &jobs,
+            false,
+            storage::now(),
+            style,
+        ));
+        Ok(body)
     })
     .await
 }
@@ -34,8 +49,20 @@ pub async fn fetch(control: &mut Control) -> anyhow::Result<Health> {
     }
 }
 
-pub fn render(name: &str, health: &Health, style: Style) -> String {
-    let mut output = format!("\n{}\n\n", style.heading(name));
+/// The heading names the Agent, and what it is from the specs saved at linking, so the
+/// hardware needs no extra request.
+pub fn render(name: &str, specs: Option<&Specs>, health: &Health, style: Style) -> String {
+    let mut output = match specs {
+        Some(specs) => format!(
+            "\n{}  {}\n\n",
+            style.heading(name),
+            style.dim(format!(
+                "{} · {} ({} cores)",
+                specs.os, specs.cpu, specs.cores
+            ))
+        ),
+        None => format!("\n{}\n\n", style.heading(name)),
+    };
     output.push_str(&row("CPU", load(health.cpu_percent as f64, style)));
     output.push_str(&row(
         "RAM",
@@ -243,7 +270,7 @@ mod tests {
             (85, "Hot", "\x1b[31m"),
         ] {
             health.gpus[0].temperature_c = Some(temperature);
-            let output = render("archbox", &health, Style::new(true));
+            let output = render("archbox", None, &health, Style::new(true));
             assert!(output.contains(&format!("  {color}{temperature}°C  {label}")));
         }
     }
@@ -258,16 +285,21 @@ mod tests {
             utilization_percent: None,
             temperature_c: None,
         });
-        let output = render("archbox", &health, Style::new(false));
+        let output = render("archbox", None, &health, Style::new(false));
         assert!(output.contains("GPU 1"));
         assert!(output.contains("GPU 2"));
         assert_eq!(output.matches("Unavailable").count(), 3);
         health.gpus[0].vram_free_mib = Some(999999);
-        assert!(render("archbox", &health, Style::new(false)).contains("VRAM         Unavailable"));
+        assert!(
+            render("archbox", None, &health, Style::new(false))
+                .contains("VRAM         Unavailable")
+        );
         health.gpus.clear();
-        assert!(render("archbox", &health, Style::new(false)).contains("No GPU data available"));
+        assert!(
+            render("archbox", None, &health, Style::new(false)).contains("No GPU data available")
+        );
         health.gpu_problem = Some("Reboot the Agent to fix".to_string());
-        let output = render("archbox", &health, Style::new(false));
+        let output = render("archbox", None, &health, Style::new(false));
         assert!(
             output.contains("GPU          Reboot the Agent to fix"),
             "{output}"
@@ -277,7 +309,7 @@ mod tests {
 
     #[test]
     fn plain_snapshot_has_readable_units_and_no_escapes() {
-        let output = render("archbox", &sample(), Style::new(false));
+        let output = render("archbox", None, &sample(), Style::new(false));
         assert!(output.contains("CPU          42.0%  Light"));
         assert!(output.contains("18.0 GiB / 64.0 GiB used, 46.0 GiB free  Available"));
         assert!(output.contains("410.0 GiB free"));
@@ -289,9 +321,29 @@ mod tests {
     }
 
     #[test]
+    fn the_heading_names_the_hardware_from_saved_specs() {
+        let specs = Specs {
+            name: "archbox".into(),
+            os: "Arch Linux".into(),
+            kernel: "6.1".into(),
+            cpu: "Example CPU".into(),
+            cores: 16,
+            memory_mib: 65536,
+            disk_total_mib: 1048576,
+            tools: vec![],
+            gpus: vec![],
+        };
+        let output = render("archbox", Some(&specs), &sample(), Style::new(false));
+        assert!(output.starts_with("\narchbox  Arch Linux · Example CPU (16 cores)\n"));
+        assert!(render("archbox", None, &sample(), Style::new(false)).starts_with("\narchbox\n"));
+    }
+
+    #[test]
     fn swap_notice_is_a_readable_warning() {
         let mut health = sample();
         health.swap_total_mib = 0;
-        assert!(render("archbox", &health, Style::new(false)).contains("! No swap configured."));
+        assert!(
+            render("archbox", None, &health, Style::new(false)).contains("! No swap configured.")
+        );
     }
 }

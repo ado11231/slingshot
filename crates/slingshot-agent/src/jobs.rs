@@ -168,7 +168,10 @@ fn find_active(root: &Path, query: &str) -> anyhow::Result<Job> {
         .collect();
     match matches.len() {
         0 => bail!("No running Slingshot job matches {query}. See slingshot ps"),
-        1 => Ok(matches.into_iter().next().unwrap()),
+        1 => Ok(matches
+            .into_iter()
+            .next()
+            .expect("one match was just counted")),
         _ => bail!("{query} matches several jobs. Use more characters"),
     }
 }

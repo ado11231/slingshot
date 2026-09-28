@@ -95,7 +95,16 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
     let user = whoami().context("Could not work out which user is running the daemon")?;
     let pairing = Pairing::new();
     let token = pairing.token.clone();
-    let addresses = bind_addresses(port);
+    let (chosen, listeners) = listen(port).await?;
+    if chosen != port {
+        presentation::warning(format!(
+            "Port {port} is in use, perhaps by slingshot start on another account, so this one uses {chosen}"
+        ));
+    }
+    let addresses: Vec<SocketAddr> = listeners
+        .iter()
+        .filter_map(|listener| listener.local_addr().ok())
+        .collect();
 
     let agent = Arc::new(Agent {
         name: name.clone(),
@@ -123,18 +132,6 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
             None
         }
     };
-
-    let mut listeners = Vec::new();
-    for addr in &addresses {
-        match TcpListener::bind(addr).await {
-            Ok(listener) => listeners.push(listener),
-            Err(e) => warn!("Could not listen on {addr}: {e}"),
-        }
-    }
-
-    if listeners.is_empty() {
-        anyhow::bail!("Could not listen on any address; is port {port} already in use?");
-    }
 
     let mut tasks = Vec::new();
     for listener in listeners {
@@ -429,6 +426,40 @@ fn whoami() -> anyhow::Result<String> {
 
 /// Loopback plus whichever local networks this machine is actually on. Never
 /// 0.0.0.0, so the daemon is not offered to an interface nobody asked about.
+/// How many ports after the requested one to try, so several accounts on one machine can
+/// each run slingshot start.
+const PORTS_TO_TRY: u16 = 10;
+
+/// Listen on every pairing address at the first port where none is taken. An address that
+/// cannot listen for another reason is left out, as long as this machine itself can.
+async fn listen(port: u16) -> anyhow::Result<(u16, Vec<TcpListener>)> {
+    for candidate in (port..=port.saturating_add(PORTS_TO_TRY - 1)).filter(|p| *p != 0) {
+        let mut listeners = Vec::new();
+        let mut taken = false;
+        for addr in bind_addresses(candidate) {
+            match TcpListener::bind(addr).await {
+                Ok(listener) => listeners.push(listener),
+                Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+                    taken = true;
+                    break;
+                }
+                Err(e) => warn!("Could not listen on {addr}: {e}"),
+            }
+        }
+        let on_this_machine = listeners
+            .first()
+            .and_then(|listener| listener.local_addr().ok())
+            .is_some_and(|addr| addr.ip().is_loopback());
+        if !taken && on_this_machine {
+            return Ok((candidate, listeners));
+        }
+    }
+    anyhow::bail!(
+        "Ports {port} to {} are all in use. Choose another with: slingshot start --port <port>",
+        port.saturating_add(PORTS_TO_TRY - 1)
+    )
+}
+
 fn bind_addresses(port: u16) -> Vec<SocketAddr> {
     let mut addresses = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, port))];
 
@@ -518,6 +549,17 @@ fn announce(name: &str, addresses: &[SocketAddr], token: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_taken_port_moves_to_the_next_free_one() {
+        let taken = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = taken.local_addr().unwrap().port();
+        let (chosen, listeners) = listen(port).await.unwrap();
+
+        assert_ne!(chosen, port);
+        assert!(chosen > port && chosen < port + PORTS_TO_TRY);
+        assert!(listeners[0].local_addr().unwrap().ip().is_loopback());
+    }
     use crate::testing::Root;
 
     fn agent(root: &Root, pairing: Pairing) -> Arc<Agent> {

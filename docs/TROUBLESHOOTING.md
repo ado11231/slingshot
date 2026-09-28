@@ -42,9 +42,15 @@
 
 ### Port In Use
 
-* **Message:** `Could not listen on any address; is port 7433 already in use?`
-* **Meaning:** Another program is using the pairing port.
-* **Fix:** Choose another port with `slingshot start --port 7434`.
+* **Message:** `! Port 7433 is in use, perhaps by slingshot start on another account, so this one uses 7434`
+* **Meaning:** Another program, or another account's `slingshot start`, has the pairing port. Slingshot moved to the next free one.
+* **Fix:** Nothing. The printed `slingshot link` line carries the new port.
+
+### No Free Port
+
+* **Message:** `Ports 7433 to 7442 are all in use`
+* **Meaning:** Slingshot tried ten ports and all were taken.
+* **Fix:** Choose another with `slingshot start --port <port>`.
 
 ### Cannot Keep The Agent Awake
 

@@ -7,6 +7,7 @@
 use crate::{jobs, projects, service};
 use anyhow::{Context, bail};
 use slingshot_core::control::{JobKind, JobState};
+use slingshot_core::presentation::{Style, Tone};
 use slingshot_core::storage;
 use slingshot_core::tools;
 use std::path::PathBuf;
@@ -88,12 +89,14 @@ pub async fn run(
     let mut child = match child.spawn() {
         Ok(child) => child,
         Err(error) => {
+            let (code, message) = not_started(program, &error);
             let _ = jobs::update(&root, &job.id, |job| {
                 job.state = JobState::Failed;
                 job.ended = Some(storage::now());
-                job.exit_code = Some(127);
+                job.exit_code = Some(code);
             });
-            return Err(error).with_context(|| format!("Could not start {program} on the Agent"));
+            eprintln!("{}", Style::stderr().status(message, Tone::Error));
+            return Ok(code);
         }
     };
 
@@ -129,13 +132,35 @@ pub async fn run(
         .code()
         .or_else(|| status.signal().map(|signal| 128 + signal))
         .unwrap_or(1);
-    jobs::update(&root, &job.id, |record| {
+    let recorded = jobs::update(&root, &job.id, |record| {
         record.state = final_state(record.stop_requested, disconnected, code);
         record.exit_code = Some(code);
         record.ended = Some(storage::now());
-    })?;
+    });
+    if let Err(error) = recorded {
+        tracing::warn!("Could not record how the run ended: {error:#}");
+    }
     drop(lock);
     Ok(code)
+}
+
+/// A command that could not start exits the way a shell reports it: 127 when it does not
+/// exist, 126 when it cannot be run, so scripts see the same codes as locally.
+fn not_started(program: &str, error: &std::io::Error) -> (i32, String) {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => (
+            127,
+            format!("{program} was not found on the Agent. Check the name, or install it there"),
+        ),
+        std::io::ErrorKind::PermissionDenied => (
+            126,
+            format!("{program} is not allowed to run on the Agent. Check that it is executable"),
+        ),
+        _ => (
+            126,
+            format!("Could not start {program} on the Agent: {error}"),
+        ),
+    }
 }
 
 /// How a finished run is recorded. Exit code 130 means the command ended on Ctrl C,
@@ -216,5 +241,15 @@ mod tests {
         assert_eq!(final_state(false, false, 101), JobState::Failed);
         assert_eq!(final_state(false, true, 0), JobState::Interrupted);
         assert_eq!(final_state(true, false, 130), JobState::Stopped);
+    }
+
+    #[test]
+    fn commands_that_cannot_start_exit_like_a_shell() {
+        let missing = std::io::Error::from(std::io::ErrorKind::NotFound);
+        let (code, message) = not_started("carg", &missing);
+        assert_eq!(code, 127);
+        assert!(message.starts_with("carg was not found on the Agent"));
+        let denied = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        assert_eq!(not_started("./build.sh", &denied).0, 126);
     }
 }

@@ -228,6 +228,18 @@
 * **Meaning:** A run stops when its connection drops.
 * **Fix:** Check how it ended with `slingshot ps --all`. Use `slingshot attach` for work that must keep going.
 
+### Command Not Found On The Agent
+
+* **Message:** `cargo was not found on the Agent. Check the name, or install it there`, with exit 127
+* **Meaning:** `slingshot run` looked for the program on the Agent and it is not there, or the name has a typo.
+* **Fix:** Check the name. For a tool that works on the Client, run `slingshot tools` to install it on the Agent.
+
+### Command Not Allowed To Run
+
+* **Message:** `./build.sh is not allowed to run on the Agent. Check that it is executable`, with exit 126
+* **Meaning:** The file exists but cannot be run, usually because it is not marked executable.
+* **Fix:** Run `chmod +x build.sh` on the Client, then `slingshot run ./build.sh` again. The sync copies the change.
+
 ### Command Not Found In A Session
 
 * **Message:** `command not found`, for a tool that works on the Client

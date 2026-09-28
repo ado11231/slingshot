@@ -6,17 +6,18 @@
 ## Contents
 
 1. [Before You Begin](#before-you-begin)
-2. [Set Up](#set-up)
-3. [Run Work](#run-work)
-4. [Keep Files In Step](#keep-files-in-step)
-5. [Environment Files](#environment-files)
-6. [Check On The Agent](#check-on-the-agent)
-7. [Manage Jobs](#manage-jobs)
-8. [The Menu Bar App](#the-menu-bar-app)
-9. [Work With More Than One Agent](#work-with-more-than-one-agent)
-10. [Project Settings](#project-settings)
-11. [What Slingshot Copies](#what-slingshot-copies)
-12. [Remove Slingshot](#remove-slingshot)
+2. [Install](#install)
+3. [Set Up](#set-up)
+4. [Run Work](#run-work)
+5. [Keep Files In Step](#keep-files-in-step)
+6. [Environment Files](#environment-files)
+7. [Check On The Agent](#check-on-the-agent)
+8. [Manage Jobs](#manage-jobs)
+9. [The Menu Bar App](#the-menu-bar-app)
+10. [Work With More Than One Agent](#work-with-more-than-one-agent)
+11. [Project Settings](#project-settings)
+12. [What Slingshot Copies](#what-slingshot-copies)
+13. [Remove Slingshot](#remove-slingshot)
 
 ## Before You Begin
 
@@ -30,6 +31,34 @@
 | --- | --- |
 | Client | `rsync` |
 | Agent | An ssh server, `rsync`, and `tmux` |
+
+## Install
+
+1. Install what Slingshot needs, and Rust, which builds it:
+
+| System | Commands |
+| --- | --- |
+| Arch Linux | `sudo pacman -S --needed base-devel rsync tmux openssh rustup`<br>`rustup default stable`<br>`sudo systemctl enable --now sshd` |
+| Ubuntu or Debian | `sudo apt install rsync tmux openssh-server curl build-essential`<br>`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh`<br>`sudo systemctl enable --now ssh` |
+| Fedora | `sudo dnf install rsync tmux openssh-server gcc`<br>`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh`<br>`sudo systemctl enable --now sshd` |
+| macOS | `xcode-select --install`<br>`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
+
+* On a Linux Client, skip `tmux` and the ssh server. They are only needed on the Agent.
+* A Mac as the Agent also needs `brew install tmux`, and Remote Login turned on in System Settings, then General, then Sharing.
+
+2. Install Slingshot on both machines:
+
+   ```sh
+   cargo install slingshot-cli
+   ```
+
+3. If `slingshot` is then not found, add Rust's folder to your PATH, then open a new terminal. Use `~/.zshrc` instead if your shell is zsh.
+
+   ```sh
+   echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+   ```
+
+* To update later, run `cargo install slingshot-cli` again on both machines. Both must run the same version.
 
 ## Set Up
 

@@ -33,4 +33,4 @@ jobs:
         run: cargo test --workspace
       - name: Menu bar app
         if: runner.os == 'macOS'
-        run: swift build -c release --package-path mac/menubar
+        run: swift build -c release --package-path crates/slingshot-cli/menubar

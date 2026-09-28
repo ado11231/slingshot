@@ -11,41 +11,35 @@ const BUNDLE_ID: &str = "dev.slingshot.menubar";
 /// after the Slingshot source folder is gone.
 #[cfg(target_os = "macos")]
 const SOURCES: &[(&str, &str)] = &[
-    (
-        "Package.swift",
-        include_str!("../../../../mac/menubar/Package.swift"),
-    ),
-    (
-        "Info.plist",
-        include_str!("../../../../mac/menubar/Info.plist"),
-    ),
+    ("Package.swift", include_str!("../../menubar/Package.swift")),
+    ("Info.plist", include_str!("../../menubar/Info.plist")),
     (
         "Sources/App.swift",
-        include_str!("../../../../mac/menubar/Sources/App.swift"),
+        include_str!("../../menubar/Sources/App.swift"),
     ),
     (
         "Sources/Bars.swift",
-        include_str!("../../../../mac/menubar/Sources/Bars.swift"),
+        include_str!("../../menubar/Sources/Bars.swift"),
     ),
     (
         "Sources/LoginItem.swift",
-        include_str!("../../../../mac/menubar/Sources/LoginItem.swift"),
+        include_str!("../../menubar/Sources/LoginItem.swift"),
     ),
     (
         "Sources/Model.swift",
-        include_str!("../../../../mac/menubar/Sources/Model.swift"),
+        include_str!("../../menubar/Sources/Model.swift"),
     ),
     (
         "Sources/Notifier.swift",
-        include_str!("../../../../mac/menubar/Sources/Notifier.swift"),
+        include_str!("../../menubar/Sources/Notifier.swift"),
     ),
     (
         "Sources/PopoverView.swift",
-        include_str!("../../../../mac/menubar/Sources/PopoverView.swift"),
+        include_str!("../../menubar/Sources/PopoverView.swift"),
     ),
     (
         "Sources/Watcher.swift",
-        include_str!("../../../../mac/menubar/Sources/Watcher.swift"),
+        include_str!("../../menubar/Sources/Watcher.swift"),
     ),
 ];
 
@@ -449,8 +443,7 @@ mod tests {
 
     #[test]
     fn every_app_source_file_is_built_into_the_program() {
-        let folder =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../mac/menubar/Sources");
+        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("menubar/Sources");
         for entry in std::fs::read_dir(folder).unwrap() {
             let name = format!("Sources/{}", entry.unwrap().file_name().to_string_lossy());
             assert!(

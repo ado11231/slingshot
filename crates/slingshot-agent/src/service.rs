@@ -263,6 +263,7 @@ fn agent_tools(root: &Path) -> anyhow::Result<AgentTools> {
         shell,
         npm_writable: tools::npm_writable(&output),
         signed_out: tools::signed_out(&output),
+        admin: tools::admin(&output),
     })
 }
 

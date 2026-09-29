@@ -131,6 +131,7 @@
 
 * For Codex, open the link it prints in a browser on the Client. Slingshot forwards port 1455 so the sign in can finish.
 * If Claude Code or Codex is already on the Agent but signed out, Slingshot names it and offers to sign in, after one yes.
+* On an Agent account that cannot use `sudo`, Slingshot installs only what that account can, and lists the rest under "Ask an admin to run".
 * Without a terminal, such as in a script, it only prints the list.
 * Many installers, such as the one for Claude Code, put programs in `~/.local/bin` or `~/.cargo/bin` on the Agent. Slingshot adds both folders to the PATH for the tool check, sign ins, and `slingshot run`, so you never edit a startup file for them. Sessions read your startup files as usual.
 * Slingshot does not match versions. Files such as `.nvmrc` or `rust-toolchain.toml` in your project still decide exact versions.

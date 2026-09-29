@@ -156,6 +156,10 @@ pub struct AgentTools {
     /// Installed tools that are not signed in, so the Client can offer to sign in.
     #[serde(default)]
     pub signed_out: Vec<Tool>,
+    /// Whether this account can use `sudo`. `None` when the Agent did not say, which is
+    /// treated as yes.
+    #[serde(default)]
+    pub admin: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -386,6 +390,7 @@ mod tests {
             shell: "/usr/bin/bash".into(),
             npm_writable: Some(false),
             signed_out: vec![Tool::Codex],
+            admin: Some(false),
         });
         write_frame(&mut a, &reply).await.unwrap();
 
@@ -397,5 +402,6 @@ mod tests {
         assert_eq!(back.shell, "/usr/bin/bash");
         assert_eq!(back.npm_writable, Some(false));
         assert_eq!(back.signed_out, vec![Tool::Codex]);
+        assert_eq!(back.admin, Some(false));
     }
 }

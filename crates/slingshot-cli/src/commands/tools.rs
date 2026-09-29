@@ -46,11 +46,18 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
     ));
 
     let manager = before.manager.as_deref();
+    let admin = before.admin.unwrap_or(true);
     eprint!(
         "\n{}\n",
-        plan(&offered, manager, before.npm_writable, Style::stderr())
+        plan(
+            &offered,
+            manager,
+            before.npm_writable,
+            admin,
+            Style::stderr()
+        )
     );
-    let script = tools::install_script(&offered, manager, before.npm_writable);
+    let script = tools::install_script(&offered, manager, before.npm_writable, admin);
     if script.is_empty() {
         return Ok(());
     }
@@ -214,20 +221,30 @@ fn announce(action: &str, target: &Agent) {
 }
 
 /// Each missing tool with the exact commands that will run, or a warning when Slingshot has
-/// none it trusts on that Agent.
+/// none it trusts on that Agent. Without `admin`, commands that need `sudo` are listed apart,
+/// for someone who can run them.
 fn plan(
     offered: &[Tool],
     manager: Option<&str>,
     npm_writable: Option<bool>,
+    admin: bool,
     style: Style,
 ) -> String {
     let mut output = String::new();
+    let mut for_admin = String::new();
     for tool in offered {
         match tool.install(manager, npm_writable) {
             Some(commands) => {
-                for (index, command) in commands.iter().enumerate() {
+                let (mine, theirs): (Vec<String>, Vec<String>) = commands
+                    .into_iter()
+                    .partition(|command| admin || !tools::needs_admin(command));
+                for (index, command) in mine.iter().enumerate() {
                     let label = if index == 0 { tool.name() } else { "" };
                     output.push_str(&row(label, command));
+                }
+                for (index, command) in theirs.iter().enumerate() {
+                    let label = if index == 0 { tool.name() } else { "" };
+                    for_admin.push_str(&row(label, command));
                 }
             }
             None => output.push_str(&row(
@@ -235,6 +252,21 @@ fn plan(
                 style.paint(manual(manager), Tone::Warning),
             )),
         }
+    }
+    if !for_admin.is_empty() {
+        output.push_str(&format!(
+            "\n{}\n{for_admin}",
+            style.status(
+                "This account cannot use sudo on the Agent. Ask an admin to run:",
+                Tone::Warning
+            )
+        ));
+    }
+    if offered.contains(&Tool::Docker) {
+        output.push_str(&format!(
+            "\n  {}\n",
+            style.dim("The docker group can control the whole Agent, as an admin can. Add only accounts you trust")
+        ));
     }
     output
 }
@@ -280,6 +312,7 @@ mod tests {
             shell: "/bin/sh".into(),
             npm_writable: None,
             signed_out: vec![Tool::ClaudeCode, Tool::Codex],
+            admin: None,
         };
         assert_eq!(
             waiting_for_sign_in(&agent, &[Tool::Codex], &[]),
@@ -305,21 +338,44 @@ mod tests {
             &[Tool::Git, Tool::Docker],
             Some("pacman"),
             None,
+            true,
             Style::new(false),
         );
 
         assert!(text.contains("  Git          sudo pacman -S git\n"));
         assert!(text.contains("  Docker       sudo pacman -S docker\n"));
         assert!(text.contains("               sudo systemctl enable --now docker\n"));
+        assert!(text.contains("The docker group can control the whole Agent"));
+        assert!(!text.contains("Ask an admin"));
+    }
+
+    #[test]
+    fn without_sudo_the_plan_lists_what_an_admin_must_run() {
+        let text = plan(
+            &[Tool::Git, Tool::ClaudeCode],
+            Some("pacman"),
+            None,
+            false,
+            Style::new(false),
+        );
+        let (mine, theirs) = text.split_once("Ask an admin to run:").unwrap();
+
+        assert!(
+            mine.contains("Claude Code  curl -fsSL https://claude.ai/install.sh | bash"),
+            "{text}"
+        );
+        assert!(!mine.contains("sudo pacman"), "{text}");
+        assert!(theirs.contains("Git          sudo pacman -S git"), "{text}");
     }
 
     #[test]
     fn the_plan_says_when_a_tool_must_be_installed_by_hand() {
-        let text = plan(&[Tool::Docker], Some("brew"), None, Style::new(false));
+        let text = plan(&[Tool::Docker], Some("brew"), None, true, Style::new(false));
 
         assert!(text.contains("No install command for brew"), "{text}");
         assert!(
-            plan(&[Tool::Git], None, None, Style::new(false)).contains("No package manager found")
+            plan(&[Tool::Git], None, None, true, Style::new(false))
+                .contains("No package manager found")
         );
     }
 }

@@ -221,11 +221,30 @@ pub fn probe_script() -> String {
         .collect();
     format!(
         "{}; for program in {}; do if command -v \"$program\" >/dev/null 2>&1; then echo \"$program\"; fi; done; \
-         if command -v npm >/dev/null 2>&1; then if [ -w \"$(npm prefix -g)\" ]; then echo {NPM_WRITABLE}; else echo {NPM_ROOT}; fi; fi; {}",
+         if command -v npm >/dev/null 2>&1; then if [ -w \"$(npm prefix -g)\" ]; then echo {NPM_WRITABLE}; else echo {NPM_ROOT}; fi; fi; {}; \
+         if [ \"$(id -u)\" = 0 ] || id -Gn | tr ' ' '\\n' | grep -qxE 'wheel|sudo|admin'; then echo {ADMIN}; else echo {NOT_ADMIN}; fi",
         user_path_line(),
         programs.join(" "),
         statuses.join("; ")
     )
+}
+
+const ADMIN: &str = "admin:yes";
+const NOT_ADMIN: &str = "admin:no";
+
+/// Whether the output of `probe_script` says the account can use `sudo`, from its groups.
+/// `None` when the Agent did not say.
+pub fn admin(output: &str) -> Option<bool> {
+    output.lines().find_map(|line| match line.trim() {
+        ADMIN => Some(true),
+        NOT_ADMIN => Some(false),
+        _ => None,
+    })
+}
+
+/// Commands that only an admin account can run.
+pub fn needs_admin(command: &str) -> bool {
+    command.starts_with("sudo ")
 }
 
 const SIGNED_OUT: &str = "signed-out:";
@@ -265,10 +284,25 @@ pub fn found(output: &str) -> Vec<Tool> {
 /// One script that installs `tools` in order, with a numbered heading before each. It keeps
 /// going after a failure, because the Agent is checked again afterwards to see what worked.
 /// Tools without a command are left out.
-pub fn install_script(tools: &[Tool], manager: Option<&str>, npm_writable: Option<bool>) -> String {
+///
+/// Without `admin`, commands that need `sudo` are left out, and so is a tool with nothing
+/// left to run. They are listed for an admin instead.
+pub fn install_script(
+    tools: &[Tool],
+    manager: Option<&str>,
+    npm_writable: Option<bool>,
+    admin: bool,
+) -> String {
     let planned: Vec<(Tool, Vec<String>)> = tools
         .iter()
-        .filter_map(|tool| Some((*tool, tool.install(manager, npm_writable)?)))
+        .filter_map(|tool| {
+            let commands: Vec<String> = tool
+                .install(manager, npm_writable)?
+                .into_iter()
+                .filter(|command| admin || !needs_admin(command))
+                .collect();
+            (!commands.is_empty()).then_some((*tool, commands))
+        })
         .collect();
     let mut lines = Vec::new();
     for (index, (tool, commands)) in planned.iter().enumerate() {
@@ -358,7 +392,12 @@ mod tests {
 
     #[test]
     fn the_install_script_names_each_tool_and_skips_ones_without_a_command() {
-        let script = install_script(&[Tool::Git, Tool::Docker, Tool::Rust], Some("brew"), None);
+        let script = install_script(
+            &[Tool::Git, Tool::Docker, Tool::Rust],
+            Some("brew"),
+            None,
+            true,
+        );
 
         assert!(script.contains("echo '▶ Git (1 of 2)'; echo\nbrew install git"));
         assert!(!script.contains("Docker"));
@@ -419,7 +458,7 @@ mod tests {
 
     #[test]
     fn the_scripts_are_valid_shell() {
-        let install = install_script(&ALL, Some("pacman"), Some(false));
+        let install = install_script(&ALL, Some("pacman"), Some(false), true);
         for script in [probe_script(), install] {
             let status = std::process::Command::new("sh")
                 .args(["-n", "-c", &script])
@@ -446,6 +485,33 @@ mod tests {
         );
         assert!(found("signed-out:codex\n").is_empty());
         assert!(signed_out("claude\n").is_empty());
+    }
+
+    #[test]
+    fn an_account_without_sudo_runs_only_what_it_can() {
+        let script = install_script(
+            &[Tool::Docker, Tool::ClaudeCode],
+            Some("pacman"),
+            Some(true),
+            false,
+        );
+        assert!(!script.contains("sudo"), "{script}");
+        assert!(!script.contains("Docker"), "{script}");
+        assert!(script.contains("▶ Claude Code (1 of 1)"), "{script}");
+        assert!(script.contains("curl -fsSL https://claude.ai/install.sh | bash"));
+        assert!(
+            install_script(&[Tool::Docker], Some("pacman"), None, true).contains("sudo pacman")
+        );
+    }
+
+    #[test]
+    fn the_probe_says_whether_the_account_is_an_admin() {
+        assert!(probe_script().contains("wheel|sudo|admin"));
+        assert_eq!(admin("git\nadmin:no\n"), Some(false));
+        assert_eq!(admin("admin:yes"), Some(true));
+        assert_eq!(admin("git"), None);
+        assert!(needs_admin("sudo pacman -S git"));
+        assert!(!needs_admin("npm install -g @openai/codex"));
     }
 
     #[test]

@@ -358,7 +358,9 @@ projects/<project id>/
 slingshot/
 ├── .github/
 │   ├── workflows/ci.yml       runs the checks on every push to master and every pull request
-│   └── dependabot.yml         opens a pull request each week for new crate and Action versions
+│   ├── dependabot.yml         opens a pull request each week for new crate and Action versions
+│   ├── ISSUE_TEMPLATE/        the forms for reporting a problem or suggesting an idea
+│   └── pull_request_template.md   the checklist every pull request starts with
 ├── Cargo.toml                 the workspace and shared dependency versions
 ├── crates/
 │   ├── slingshot-core/        shared rules and types

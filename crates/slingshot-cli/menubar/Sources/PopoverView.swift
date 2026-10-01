@@ -344,7 +344,7 @@ struct ProblemView: View {
                 .textSelection(.enabled)
             if let fix {
                 CommandBox(
-                    label: fix.machine == "agent" ? "Run on \(agent ?? "the box")" : "Run on this machine",
+                    label: fix.machine == "agent" ? "Run on \(agent ?? "the Agent")" : "Run on this machine",
                     command: fix.command
                 )
             }

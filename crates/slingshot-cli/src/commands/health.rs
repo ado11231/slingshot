@@ -107,7 +107,7 @@ pub fn render(name: &str, specs: Option<&Specs>, health: &Health, style: Style) 
     if health.swap_total_mib == 0 {
         output.push('\n');
         output.push_str(&style.status(
-            "No swap configured. Jobs may stop if RAM runs out.",
+            "No swap configured. Jobs may stop if RAM runs out",
             Tone::Warning,
         ));
         output.push('\n');

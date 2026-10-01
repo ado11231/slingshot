@@ -154,8 +154,8 @@ pub fn start_checks() -> Vec<Check> {
         match is_installed("nvidia-smi") {
             true => Check::pass("GPU reporting available"),
             false => Check::warn(
-                "GPU reporting unavailable",
-                "Optional when no NVIDIA GPU is installed",
+                "GPU reporting unavailable, because nvidia-smi is not installed",
+                "Nothing to do without an NVIDIA GPU. With one, install its driver, which includes nvidia-smi",
             ),
         },
     ]

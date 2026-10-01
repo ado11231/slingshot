@@ -181,8 +181,8 @@ pub fn explain(name: &str, error: &str) -> Problem {
     };
     if has(&["no agent configured"]) {
         problem(
-            "No box linked yet".to_string(),
-            "Run slingshot start on the box, then link this machine with the code it prints."
+            "No Agent linked yet".to_string(),
+            "Run slingshot start on the Agent, then link this machine with the code it prints."
                 .to_string(),
             run(Machine::Client, "slingshot link <code>"),
         )
@@ -352,7 +352,7 @@ mod tests {
             ),
             (
                 "No Agent configured yet\n\nOn the Agent:   slingshot start",
-                "No box linked yet",
+                "No Agent linked yet",
                 Some((Machine::Client, "slingshot link <code>")),
             ),
             (

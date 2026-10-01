@@ -356,7 +356,9 @@ projects/<project id>/
 
 ```
 slingshot/
-├── .github/workflows/ci.yml   runs the checks on every push to master and every pull request
+├── .github/
+│   ├── workflows/ci.yml       runs the checks on every push to master and every pull request
+│   └── dependabot.yml         opens a pull request each week for new crate and Action versions
 ├── Cargo.toml                 the workspace and shared dependency versions
 ├── crates/
 │   ├── slingshot-core/        shared rules and types

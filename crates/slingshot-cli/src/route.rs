@@ -1,6 +1,6 @@
-//! How to reach a box. Every saved address is probed at once and the most preferred one
+//! How to reach an Agent. Every saved address is probed at once and the most preferred one
 //! that answers wins, so an unreachable home address costs one short timeout rather than
-//! one per candidate. When none answers, iroh reaches the box from any network.
+//! one per candidate. When none answers, iroh reaches the Agent from any network.
 
 use slingshot_core::config::Agent;
 use slingshot_core::network::Network;
@@ -48,10 +48,10 @@ impl Route {
     }
 }
 
-/// One process talks to one box, so the first answer is kept for every later ssh call.
+/// One process talks to one Agent, so the first answer is kept for every later ssh call.
 static CHOSEN: Mutex<Option<(String, Route)>> = Mutex::new(None);
 
-/// The path to take to `agent`. When nothing answers and the box has no iroh key, the
+/// The path to take to `agent`. When nothing answers and the Agent has no iroh key, the
 /// pairing address is returned so ssh reports the failure in its own words.
 pub fn resolve(agent: &Agent) -> Route {
     let mut chosen = CHOSEN.lock().expect("route lock was poisoned");
@@ -66,13 +66,13 @@ pub fn resolve(agent: &Agent) -> Route {
 }
 
 /// Probe again on the next `resolve`. A process that outlives one network, such as the
-/// menu bar helper, calls this after losing the box so a new network gets a new path.
+/// menu bar helper, calls this after losing the Agent so a new network gets a new path.
 pub fn forget() {
     *CHOSEN.lock().expect("route lock was poisoned") = None;
 }
 
 /// Take the path a parent process already chose, from its `token`. Ignored unless it is
-/// one of the box's own paths.
+/// one of the Agent's own paths.
 pub fn assume(agent: &Agent, token: &str) {
     let route = match (token, iroh_key(agent)) {
         (IROH, Some(key)) => Route::Iroh { key },
@@ -120,7 +120,7 @@ fn probe_now(agent: &Agent) -> Route {
     }
 }
 
-/// The box's iroh key, if pairing saved one that parses. Checked here so nothing
+/// The Agent's iroh key, if pairing saved one that parses. Checked here so nothing
 /// malformed ever reaches ssh's ProxyCommand.
 fn iroh_key(agent: &Agent) -> Option<String> {
     agent
@@ -170,9 +170,9 @@ mod tests {
     fn the_first_preferred_address_that_answers_wins() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
-        let box_ = agent("192.0.2.1", &["127.0.0.1"], Some(port));
+        let target = agent("192.0.2.1", &["127.0.0.1"], Some(port));
 
-        assert_eq!(probe(&box_), Route::to("127.0.0.1"));
+        assert_eq!(probe(&target), Route::to("127.0.0.1"));
     }
 
     #[test]
@@ -180,27 +180,27 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
-        let box_ = agent("192.0.2.1", &["127.0.0.1"], Some(port));
+        let target = agent("192.0.2.1", &["127.0.0.1"], Some(port));
 
-        assert_eq!(probe(&box_), Route::to("192.0.2.1"));
+        assert_eq!(probe(&target), Route::to("192.0.2.1"));
     }
 
     #[test]
     fn a_single_address_is_used_without_probing() {
-        let box_ = agent("192.0.2.1", &[], None);
+        let target = agent("192.0.2.1", &[], None);
 
-        assert_eq!(probe(&box_), Route::to("192.0.2.1"));
+        assert_eq!(probe(&target), Route::to("192.0.2.1"));
     }
 
     #[test]
-    fn with_nothing_answering_iroh_is_used_when_the_box_has_a_key() {
+    fn with_nothing_answering_iroh_is_used_when_the_agent_has_a_key() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
-        let box_ = with_iroh("127.0.0.1", &[], Some(port), Some(KEY));
+        let target = with_iroh("127.0.0.1", &[], Some(port), Some(KEY));
 
         assert_eq!(
-            probe(&box_),
+            probe(&target),
             Route::Iroh {
                 key: KEY.to_string()
             }
@@ -211,23 +211,23 @@ mod tests {
     fn probing_works_from_every_kind_of_runtime() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
-        let box_ = agent("192.0.2.1", &["127.0.0.1"], Some(port));
+        let target = agent("192.0.2.1", &["127.0.0.1"], Some(port));
         let expected = Route::to("127.0.0.1");
 
         let threads = tokio::runtime::Builder::new_multi_thread().build().unwrap();
-        assert_eq!(threads.block_on(async { probe(&box_) }), expected);
+        assert_eq!(threads.block_on(async { probe(&target) }), expected);
         let single = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
-        assert_eq!(single.block_on(async { probe(&box_) }), expected);
+        assert_eq!(single.block_on(async { probe(&target) }), expected);
     }
 
     #[test]
     fn a_direct_address_still_beats_iroh() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
-        let box_ = with_iroh("127.0.0.1", &[], Some(port), Some(KEY));
+        let target = with_iroh("127.0.0.1", &[], Some(port), Some(KEY));
 
-        assert_eq!(probe(&box_), Route::to("127.0.0.1"));
+        assert_eq!(probe(&target), Route::to("127.0.0.1"));
     }
 }

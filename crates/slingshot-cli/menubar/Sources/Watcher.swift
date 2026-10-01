@@ -24,7 +24,7 @@ final class Watcher {
 
     private static let backoff: [TimeInterval] = [2, 5, 15, 30]
 
-    /// Start the helper, or restart it when `slingshot menubar` saved a new program or box.
+    /// Start the helper, or restart it when `slingshot menubar` saved a new program or Agent.
     func start() {
         let defaults = UserDefaults.standard
         guard let program = defaults.string(forKey: "slingshotPath"),
@@ -42,7 +42,7 @@ final class Watcher {
         launch(program: program, agent: agent)
     }
 
-    /// Skip the helper's wait and try the box again now.
+    /// Skip the helper's wait and try the Agent again now.
     func retry() {
         guard let input, process?.isRunning == true else {
             start()

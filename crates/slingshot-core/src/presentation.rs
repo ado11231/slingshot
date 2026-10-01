@@ -110,7 +110,7 @@ pub fn plural(count: usize, noun: &str) -> String {
     }
 }
 
-/// One indented `label   value` line. Colourless on purpose: the label is structure, and
+/// One indented `label   value` line. Colorless on purpose: the label is structure, and
 /// any emphasis belongs to the value the caller passes in.
 pub fn row(label: &str, value: impl std::fmt::Display) -> String {
     format!("  {label:<12} {value}\n")

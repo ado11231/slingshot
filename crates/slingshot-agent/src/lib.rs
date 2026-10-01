@@ -187,7 +187,7 @@ fn sleep_warning(over_ssh: bool) -> &'static str {
     }
 }
 
-/// Say once whether other networks can reach this box, before the pairing code so the code
+/// Say once whether other networks can reach this Agent, before the pairing code so the code
 /// stays the last thing on screen. The same network works either way.
 async fn report_reach(endpoint: &iroh::Endpoint) {
     let step = step::start("Connecting to iroh relays");
@@ -424,8 +424,6 @@ fn whoami() -> anyhow::Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
-/// Loopback plus whichever local networks this machine is actually on. Never
-/// 0.0.0.0, so the daemon is not offered to an interface nobody asked about.
 /// How many ports after the requested one to try, so several accounts on one machine can
 /// each run slingshot start.
 const PORTS_TO_TRY: u16 = 10;
@@ -460,6 +458,8 @@ async fn listen(port: u16) -> anyhow::Result<(u16, Vec<TcpListener>)> {
     )
 }
 
+/// Loopback plus whichever local networks this machine is actually on. Never
+/// 0.0.0.0, so the daemon is not offered to an interface nobody asked about.
 fn bind_addresses(port: u16) -> Vec<SocketAddr> {
     let mut addresses = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, port))];
 

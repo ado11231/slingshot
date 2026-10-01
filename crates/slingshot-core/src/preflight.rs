@@ -8,7 +8,7 @@ use std::time::Duration;
 /// How long to wait when testing whether something is listening.
 const PROBE_TIMEOUT: Duration = Duration::from_millis(1500);
 
-/// How a single check turned out. `Warn` means the box works today but something
+/// How a single check turned out. `Warn` means the Agent works today but something
 /// later will want this, so it is worth saying without blocking anybody.
 #[derive(Debug, PartialEq)]
 pub enum State {

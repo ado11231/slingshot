@@ -4,7 +4,7 @@
 use std::net::IpAddr;
 
 /// Declared in order of preference, so sorting by it puts the best path first. Judged from
-/// the address itself rather than from how it was found, because a box routing everything
+/// the address itself rather than from how it was found, because an Agent routing everything
 /// over a VPN would otherwise be mislabeled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Network {

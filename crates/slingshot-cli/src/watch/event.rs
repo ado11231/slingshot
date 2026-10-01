@@ -26,7 +26,7 @@ pub enum Event {
     Notice(Notice),
 }
 
-/// Everything the popover shows. Measurements are absent while the box is offline.
+/// Everything the popover shows. Measurements are absent while the Agent is offline.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Status {
     pub agent: String,

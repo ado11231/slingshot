@@ -37,14 +37,14 @@ pub struct RemoteCommand {
     pub port: Option<u16>,
     pub identity_file: Option<PathBuf>,
     pub known_hosts: Option<PathBuf>,
-    /// The name the box's host keys were learned under, which stays the same whichever
+    /// The name the Agent's host keys were learned under, which stays the same whichever
     /// address is dialed.
     pub host_key_alias: Option<String>,
-    /// How ssh reaches the box when no address answers directly.
+    /// How ssh reaches the Agent when no address answers directly.
     pub proxy: Option<String>,
     /// The socket ssh shares one connection through across calls, used over iroh.
     pub shared: Option<PathBuf>,
-    /// Whether to ask for a terminal on the box. See `wants_terminal`.
+    /// Whether to ask for a terminal on the Agent. See `wants_terminal`.
     pub tty: bool,
     /// A port on the Agent to reach at the same port on this machine while the command runs.
     pub forward: Option<u16>,
@@ -53,7 +53,7 @@ pub struct RemoteCommand {
 }
 
 impl RemoteCommand {
-    /// Build a command aimed at a saved box, over whichever of its addresses answers.
+    /// Build a command aimed at a saved Agent, over whichever of its addresses answers.
     /// Everything ssh needs comes from the config, so nobody has to keep an entry in
     /// `~/.ssh/config` in step with this.
     pub fn to(agent: &config::Agent, program: String, args: Vec<String>) -> RemoteCommand {

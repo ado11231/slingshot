@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LoginItem.enable()
     }
 
-    /// `slingshot menubar` opens the app again after saving a new program path or box.
+    /// `slingshot menubar` opens the app again after saving a new program path or Agent.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         watcher.start()
         return false

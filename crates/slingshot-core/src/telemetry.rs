@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::Command;
 use sysinfo::{Disks, MINIMUM_CPU_UPDATE_INTERVAL, System};
 
-/// Programs worth knowing about when deciding what the box can do for you.
+/// Programs worth knowing about when deciding what the Agent can do for you.
 const INTERESTING_TOOLS: &[&str] = &[
     "docker",
     "podman",
@@ -19,7 +19,7 @@ const INTERESTING_TOOLS: &[&str] = &[
 
 const BYTES_PER_MIB: u64 = 1024 * 1024;
 
-/// Static facts about the box. `name` is passed in rather than read from the machine,
+/// Static facts about the Agent. `name` is passed in rather than read from the machine,
 /// because it is chosen at pairing and should not drift if the hostname changes.
 pub fn specs(name: &str) -> Specs {
     let mut sys = System::new_all();

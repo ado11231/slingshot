@@ -17,7 +17,7 @@ use tracing::{debug, info, warn};
 pub const SSHD: SocketAddr = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), 22);
 
 /// How long `start` waits to hear from a relay before saying other networks cannot reach
-/// the box yet. The endpoint keeps trying afterwards.
+/// the Agent yet. The endpoint keeps trying afterwards.
 const ONLINE_WAIT: Duration = Duration::from_secs(15);
 
 /// Bind the endpoint on iroh's public relays and start accepting in the background.
@@ -32,7 +32,7 @@ pub async fn start(identity: SecretKey, root: PathBuf) -> anyhow::Result<Endpoin
     Ok(endpoint)
 }
 
-/// Whether a relay answered within `ONLINE_WAIT`, which is what makes the box reachable
+/// Whether a relay answered within `ONLINE_WAIT`, which is what makes the Agent reachable
 /// from other networks.
 pub async fn online(endpoint: &Endpoint) -> bool {
     tokio::time::timeout(ONLINE_WAIT, endpoint.online())

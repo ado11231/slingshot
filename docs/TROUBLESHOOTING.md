@@ -192,7 +192,7 @@
 
 ### Versions Differ
 
-* **Message:** `archbox runs an older Slingshot than this machine`, or `This machine runs an older Slingshot than archbox`
+* **Message:** `archbox runs an older Slingshot 0.1.0 than this machine (0.2.0)`, or `This machine runs an older Slingshot (0.1.0) than archbox 0.2.0`
 * **Meaning:** The two machines run versions that cannot talk to each other. The message names the older one.
 * **Fix:** On the machine it names, run `cargo install slingshot-cli`. If that is the Agent, restart `slingshot start` there.
 
@@ -280,7 +280,7 @@
 
 * **Message:** `Live views need an interactive terminal`
 * **Meaning:** `slingshot health --watch` redraws the screen, which needs a real terminal.
-* **Fix:** Run them in a terminal, or use `slingshot health` to save or pipe the output.
+* **Fix:** Run it in a terminal, or use `slingshot health` to save or pipe the output.
 
 ## Syncing Files
 
@@ -296,7 +296,7 @@
 
 ### Interrupted Sync
 
-* **Message:** `An interrupted sync needs recovery. Run slingshot sync to recover it`
+* **Message:** `An interrupted sync of app needs recovery. Run slingshot sync to recover it`, where app is your project
 * **Meaning:** A sync stopped partway, for example when the connection dropped.
 * **Fix:** Run `slingshot sync`. It finishes or safely undoes the earlier sync.
 

@@ -22,7 +22,7 @@
 ## Before You Begin
 
 * The **Client** is the machine you work on, such as your laptop.
-* The **Agent** is the powerful machine that does the work. It is also called the box.
+* The **Agent** is the powerful machine that does the work.
 * A **project** is a folder inside a Git repository, or a folder with a `Cargo.toml`, `package.json`, `pyproject.toml`, `requirements.txt`, or `slingshot.toml` file.
 * A **job** is one run or one session on the Agent.
 * Each machine needs these tools. Slingshot tells you if one is missing and prints the command to install it.
@@ -246,7 +246,6 @@ slingshot env remove .env
 | `slingshot health --watch` | The same, refreshed every two seconds, with running jobs listed underneath. Press Q or Ctrl C to leave. |
 
 * The system and processor were saved when linking, so they need no extra request.
-
 * Values turn yellow or red only when they need attention.
 
 ## Manage Jobs

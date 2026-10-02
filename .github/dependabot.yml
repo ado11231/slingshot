@@ -1,0 +1,23 @@
+# Opens a pull request each week when a Rust crate or a GitHub Action has a new version, so
+# updates arrive small and checked by CI instead of all at once before a release.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: fix
+    groups:
+      crates:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: fix
+    groups:
+      actions:
+        update-types: [minor, patch]

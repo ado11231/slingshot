@@ -222,6 +222,7 @@
 2. How you tested it, with the exact commands, and whether you used two machines.
 3. Anything not yet tested.
 
+* The pull request template has a checklist for the checks and the documentation.
 * It is ready for review when all checks pass and the documentation is updated.
 
 ## Out Of Scope
@@ -240,7 +241,7 @@
 ## Reporting A Problem
 
 1. Check [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) first.
-2. If your problem is not there, open an issue with:
+2. If your problem is not there, open an issue with the Problem template. It asks for:
    * The exact command you ran.
    * What you expected.
    * What happened, with the full output.

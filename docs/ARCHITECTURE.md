@@ -35,7 +35,7 @@
 | Term | Meaning |
 | --- | --- |
 | **Client** | The machine you work on. |
-| **Agent** | The powerful machine that does the work. Also called the box. |
+| **Agent** | The powerful machine that does the work. |
 | **Pairing** | The one time step that lets a Client reach an Agent. |
 | **ssh** | The standard tool for logging in to another machine securely. |
 | **rsync** | A tool that copies only the files that changed. |

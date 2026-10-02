@@ -2,7 +2,7 @@
 
 * What Slingshot does today, what has been tested, and what comes next.
 * A feature is listed as complete only after it has run on real machines.
-* Last updated September 25, 2026.
+* Last updated October 1, 2026.
 
 ## Contents
 
@@ -74,6 +74,7 @@
 3. The Agent accepts iroh connections only from paired Clients.
 4. `slingshot start` keeps the Agent awake.
 5. Error messages tell an Agent that is off apart from a Client that is no longer paired.
+6. `slingshot start` closes iroh cleanly when stopped with Ctrl C, when told to stop, or when its terminal closes, so Clients reconnect at once.
 
 * **Remaining:**
 
@@ -95,6 +96,10 @@
 10. The tools step shows one plain command per tool, warns when tools are missing, and numbers each install.
 11. A run ended by Ctrl C or `slingshot stop` is reported as stopped, not failed.
 12. The menu bar app is always a login item, `link` offers it on a Mac, `slingshot menubar --remove` removes it, and it switches to a newly installed `slingshot` by itself.
+13. When the two machines run versions that cannot talk, the message names the older machine and the command to update it. Different releases that still work print one warning.
+14. `slingshot tools` names Claude Code or Codex when it is installed on the Agent but signed out, and offers to sign in.
+15. `slingshot start` moves to the next free port when the pairing port is taken, such as by another account on the same Agent.
+16. On an Agent account that cannot use `sudo`, the tools step installs what that account can and lists the rest for an admin.
 
 * **Remaining:**
 
@@ -130,6 +135,8 @@
 * `slingshot.toml` supports only `sync.exclude`. Other settings have no effect.
 * Pairing across networks is not supported. Both machines must share a network or tailnet to link.
 * The notifications for an Agent coming back online, and the resource warnings, have not been seen on real machines.
+* A dev server or a Docker container on the Agent cannot be opened in the Client's browser yet. Port forwarding is planned in issue #9.
+* The tools step on an account that cannot use `sudo` has only been checked by unit tests, because no such account was available.
 
 ## Test Record
 
@@ -246,3 +253,8 @@
 1. On archbox, Claude Code was signed in and Codex was not. `slingshot tools` printed `! Codex is not signed in on archbox` and asked to sign in.
 2. Answering no printed `Run slingshot tools any time to do this later`. The sign in itself was not run, because it needs a browser.
 
+### Version Messages, Free Port, And Accounts Without Sudo: September 28, 2026
+
+1. Against archbox, a normal run printed no version warning. A local build with the protocol raised to 10 printed `archbox runs an older Slingshot than this machine (0.1.0). Update it there with: cargo install slingshot-cli, then restart slingshot start`.
+2. On the Mac, two `slingshot start` processes ran under separate homes. The second moved to port 7434 and said so.
+3. On archbox, an admin account, the tools check still found every tool after the `sudo` check was added.

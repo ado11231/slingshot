@@ -46,7 +46,7 @@ pub fn require(path: Option<PathBuf>) -> anyhow::Result<Local> {
     };
     locate(&start).with_context(|| {
         format!(
-            "No project found at {}. Use a folder inside a Git repository or one with Cargo.toml, package.json, pyproject.toml, or slingshot.toml",
+            "No project found at {}. Use a folder inside a Git repository or one with Cargo.toml, package.json, pyproject.toml, requirements.txt, or slingshot.toml",
             start.display()
         )
     })

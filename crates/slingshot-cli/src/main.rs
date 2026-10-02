@@ -70,6 +70,7 @@ enum Commands {
         #[arg(long)]
         name: Option<String>,
 
+        /// The pairing port. When it is taken, the next free one is used.
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
     },

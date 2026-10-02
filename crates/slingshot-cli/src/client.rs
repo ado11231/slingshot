@@ -27,8 +27,8 @@ pub async fn pair(
 ) -> anyhow::Result<protocol::Paired> {
     let stream = tokio::time::timeout(Duration::from_secs(10), TcpStream::connect((host, port)))
         .await
-        .with_context(|| format!("Timed out reaching the slingshot daemon at {host}:{port}"))?
-        .with_context(|| format!("Could not reach the slingshot daemon at {host}:{port}"))?;
+        .with_context(|| format!("Timed out reaching the Agent at {host}:{port}. Check that slingshot start is running there"))?
+        .with_context(|| format!("Could not reach the Agent at {host}:{port}. Check that slingshot start is running there"))?;
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader.take(1024 * 1024));
 
@@ -81,7 +81,8 @@ async fn answer(
         .await
         .context("The Agent did not answer the pairing request")?
         .context("The Agent closed the connection without answering")?;
-    serde_json::from_str(reply.trim()).context("Could not understand the daemon's answer")
+    serde_json::from_str(reply.trim())
+        .context("Could not understand the Agent's answer. Update Slingshot on both machines")
 }
 
 /// An Agent error passes through as written. Anything else means the two sides disagree

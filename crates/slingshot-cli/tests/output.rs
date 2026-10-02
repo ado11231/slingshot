@@ -65,7 +65,9 @@ fn explicit_color_applies_to_help() {
 fn internal_helpers_are_hidden_from_help() {
     let output = invoke(&["--color", "never", "--help"], false, "xterm");
     let help = String::from_utf8(output.stdout).unwrap();
-    for visible in ["attach", "sync", "env", "ps", "stop", "top"] {
+    for visible in [
+        "start", "link", "tools", "run", "attach", "sync", "env", "ps", "stop", "health",
+    ] {
         assert!(help.contains(visible), "{visible} missing from help");
     }
     assert!(!help.contains("internal"));

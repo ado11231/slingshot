@@ -76,7 +76,10 @@ pub async fn unlink(agent: Option<String>) -> anyhow::Result<i32> {
     }
 
     presentation::success(format!("Forgot {}", target.name));
-    presentation::detail("Kept", "source copies and backups on the box");
+    presentation::detail(
+        "Kept",
+        format!("source copies and backups on {}", target.name),
+    );
     presentation::detail("Saved", presentation::home_path(&saved));
     if !complete {
         presentation::warning(

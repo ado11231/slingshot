@@ -13,17 +13,17 @@ fn private_key_path() -> anyhow::Result<PathBuf> {
     Ok(ssh_dir()?.join(KEY_NAME))
 }
 
-/// Find slingshot's key, creating it the first time. Generating one is announced with
-/// its path, because a tool that quietly makes keys cannot be audited.
-pub fn ensure(client_name: &str) -> anyhow::Result<(PathBuf, String)> {
+/// Find slingshot's key, creating it the first time. Also says whether it was just made, so
+/// `link` can announce a new key with its path, because a tool that quietly makes keys cannot
+/// be audited.
+pub fn ensure(client_name: &str) -> anyhow::Result<(PathBuf, String, bool)> {
     let private = private_key_path()?;
     let public = private.with_extension("pub");
 
-    if !public.exists() {
+    let created = !public.exists();
+    if created {
         let dir = ssh_dir()?;
         fs::create_dir_all(&dir).with_context(|| format!("Could not create {}", dir.display()))?;
-
-        eprintln!("Generating a Slingshot SSH key at {}", private.display());
 
         let status = Command::new("ssh-keygen")
             .args([
@@ -38,11 +38,11 @@ pub fn ensure(client_name: &str) -> anyhow::Result<(PathBuf, String)> {
             ])
             .arg(&private)
             .status()
-            .context("Could not run ssh-keygen; check that ssh is installed")?;
+            .context("Could not run ssh-keygen. Install OpenSSH, then run slingshot link again")?;
 
         if !status.success() {
             anyhow::bail!(
-                "SSH key generation failed while creating {}",
+                "Could not create the SSH key {}. Check that the folder is writable, then run slingshot link again",
                 private.display()
             );
         }
@@ -51,5 +51,5 @@ pub fn ensure(client_name: &str) -> anyhow::Result<(PathBuf, String)> {
     let text = fs::read_to_string(&public)
         .with_context(|| format!("Could not read {}", public.display()))?;
 
-    Ok((private, text.trim().to_string()))
+    Ok((private, text.trim().to_string(), created))
 }

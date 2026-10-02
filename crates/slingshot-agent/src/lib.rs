@@ -196,7 +196,7 @@ async fn report_reach(endpoint: &iroh::Endpoint) {
         false => {
             step.clear();
             presentation::warning(
-                "No iroh relay answered, so other networks cannot reach this box yet. The same network still works, and Slingshot keeps trying",
+                "No iroh relay answered, so other networks cannot reach this machine yet. The same network still works, and Slingshot keeps trying",
             );
         }
     }

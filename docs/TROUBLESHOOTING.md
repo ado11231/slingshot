@@ -73,7 +73,7 @@
 
 ### Cannot Reach The Agent To Pair
 
-* **Message:** `Could not reach 192.168.1.9:7433`
+* **Message:** `Could not reach 192.168.1.9:7433`, or `Could not reach the Agent at 192.168.1.9:7433`
 * **Meaning:** The Client could not contact the Agent.
 * **Fix:**
 
@@ -339,6 +339,12 @@
 * **Fix:** Copy the ID from `slingshot ps`.
 
 ## GPU
+
+### GPU Reporting Unavailable
+
+* **Message:** `GPU reporting unavailable, because nvidia-smi is not installed`
+* **Meaning:** A warning from `slingshot start`. Slingshot reads GPU use with `nvidia-smi`, which comes with the NVIDIA driver.
+* **Fix:** Nothing, if the Agent has no NVIDIA GPU. If it has one, install the NVIDIA driver, then run `slingshot start` again.
 
 ### Driver Mismatch
 

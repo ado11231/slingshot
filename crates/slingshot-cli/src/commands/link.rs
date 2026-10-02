@@ -32,12 +32,11 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
     let reaching = step::start(format!("Reaching {host}"));
     if !preflight::is_listening(format!("{host}:{port}").parse()?) {
         reaching.clear();
-        preflight::report(&[unreachable(&host, port)]);
-        anyhow::bail!("Pairing stopped");
+        anyhow::bail!(unreachable(&host, port));
     }
     reaching.set(format!("Pairing with {host}"));
 
-    let (private_key, public_key) = keys::ensure(&client_name)?;
+    let (private_key, public_key, new_key) = keys::ensure(&client_name)?;
 
     let paired = client::pair(
         &host,
@@ -73,7 +72,13 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
     let saved = config.save()?;
 
     reaching.done(format!("Paired with {name}"));
-    presentation::detail("Key", home_path(&private_key));
+    presentation::detail(
+        "Key",
+        match new_key {
+            true => format!("{} (new)", home_path(&private_key)),
+            false => home_path(&private_key),
+        },
+    );
     presentation::detail(
         "Installed",
         format!("{}@{}:~/.ssh/authorized_keys", paired.user, host),
@@ -113,11 +118,10 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
 }
 
 /// Nothing answered the pairing port. The usual cause is being on another network,
-/// because pairing only works where the box can be reached directly.
-fn unreachable(host: &str, port: u16) -> Check {
-    Check::fail(
-        format!("Could not reach {host}:{port}"),
-        "Check that slingshot start is running there, and that this machine is on the same network or tailnet",
+/// because pairing only works where the Agent can be reached directly.
+fn unreachable(host: &str, port: u16) -> String {
+    format!(
+        "Could not reach {host}:{port}. Check that slingshot start is running there, and that this machine is on the same network or tailnet"
     )
 }
 
@@ -158,6 +162,16 @@ mod tests {
     #[test]
     fn a_code_missing_a_part_is_rejected() {
         assert!(parse_code("10.0.0.4:7433").is_err());
+    }
+
+    #[test]
+    fn an_unreachable_agent_is_one_line_with_its_fix() {
+        let message = unreachable("192.168.1.9", 7433);
+
+        assert!(
+            message.starts_with("Could not reach 192.168.1.9:7433. Check that slingshot start")
+        );
+        assert!(!message.contains('\n'));
     }
 
     #[test]

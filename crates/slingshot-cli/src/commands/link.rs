@@ -118,7 +118,7 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
 }
 
 /// Nothing answered the pairing port. The usual cause is being on another network,
-/// because pairing only works where the box can be reached directly.
+/// because pairing only works where the Agent can be reached directly.
 fn unreachable(host: &str, port: u16) -> String {
     format!(
         "Could not reach {host}:{port}. Check that slingshot start is running there, and that this machine is on the same network or tailnet"

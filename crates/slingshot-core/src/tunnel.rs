@@ -1,6 +1,6 @@
 //! What both machines share for reaching an Agent over iroh: the protocol name each end
 //! checks, and a persistent identity. The public half of an identity is how the other
-//! machine addresses and recognises this one.
+//! machine addresses and recognizes this one.
 
 use crate::storage;
 use anyhow::Context;
@@ -11,7 +11,7 @@ use std::path::Path;
 pub const ALPN: &[u8] = b"slingshot/ssh/1";
 
 /// Why the Agent closes a connection from a key that never paired. The Client looks for it
-/// to tell a refusal apart from a box that is simply off.
+/// to tell a refusal apart from an Agent that is simply off.
 pub const NOT_PAIRED: &str = "not paired with this Agent";
 
 const IDENTITY_FILE: &str = "iroh.key";

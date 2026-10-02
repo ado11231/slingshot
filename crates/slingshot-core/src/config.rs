@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-/// Shown whenever there is no box to talk to. Names the two commands that fix it,
+/// Shown whenever there is no Agent to talk to. Names the two commands that fix it,
 /// because a stranger has no config file to look at yet.
 const NO_AGENTS: &str = "No Agent configured yet\n\n\
                          On the Agent:   slingshot start\n\
@@ -25,7 +25,7 @@ pub struct Config {
     agents: Vec<Agent>,
 }
 
-/// One box. `name` is the nickname the user types; `host` is what ssh dials.
+/// One Agent. `name` is the nickname the user types; `host` is what ssh dials.
 /// `port` of `None` means 22, and `identity_file` of `None` falls back to the
 /// user's own ssh setup rather than the key that pairing installed.
 ///
@@ -40,22 +40,22 @@ pub struct Agent {
     /// Where the daemon listens. Separate from `port`, which is for ssh.
     pub daemon_port: Option<u16>,
     pub identity_file: Option<PathBuf>,
-    /// The file holding this box's ssh host keys, learned at pairing.
+    /// The file holding this Agent's ssh host keys, learned at pairing.
     pub known_hosts: Option<PathBuf>,
     /// Where the Slingshot program lives on the Agent, reported at pairing.
     #[serde(default)]
     pub program: Option<String>,
-    /// Other addresses the box reported at pairing. Configs saved before this have none.
+    /// Other addresses the Agent reported at pairing. Configs saved before this have none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub addresses: Vec<String>,
-    /// The box's iroh public key. Configs saved before iroh have none.
+    /// The Agent's iroh public key. Configs saved before iroh have none.
     #[serde(default)]
     pub iroh: Option<String>,
-    /// The name this box knows this machine by. Links saved before unique names have none
+    /// The name this Agent knows this machine by. Links saved before unique names have none
     /// and go by the hostname.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub client: Option<String>,
-    /// What the box is, fetched once at pairing so `info` is instant.
+    /// What the Agent is, fetched once at pairing so `health` names it without asking again.
     pub specs: Option<Specs>,
 }
 
@@ -65,7 +65,7 @@ impl Agent {
         self.daemon_port.unwrap_or(DEFAULT_PORT)
     }
 
-    /// The name this box knows this machine by. `link` labels the installed key with it and
+    /// The name this Agent knows this machine by. `link` labels the installed key with it and
     /// `unlink` removes the key by it, so both must get the same answer.
     pub fn client_name(&self) -> String {
         self.client.clone().unwrap_or_else(keys::client_name)
@@ -104,7 +104,7 @@ fn path() -> anyhow::Result<PathBuf> {
     Ok(dir()?.join("config.toml"))
 }
 
-/// Where slingshot keeps the host keys of the boxes it has paired with. Kept apart
+/// Where slingshot keeps the host keys of the Agents it has paired with. Kept apart
 /// from your own `~/.ssh/known_hosts` so slingshot only ever edits its own files.
 pub fn known_hosts_path() -> anyhow::Result<PathBuf> {
     Ok(dir()?.join("known_hosts"))
@@ -176,11 +176,9 @@ impl Config {
         }
     }
 
-    /// Add a box, or replace the entry of the same name when pairing again. The
-    /// first box paired becomes the default, so `run` works with no flags.
-    /// The name to link the box at `host` under. A box already saved keeps its name, so
-    /// linking again replaces the old key instead of leaving it behind. A new box gets a name
-    /// unique to this machine, made from `id`.
+    /// The name this machine links under with the Agent at `host`. An Agent already saved
+    /// keeps the name it knows, so linking again replaces the old key instead of leaving it
+    /// behind. A new Agent gets a name unique to this machine, made from `id`.
     pub fn client_for(&self, host: &str, id: &str) -> String {
         self.agents
             .iter()
@@ -189,6 +187,8 @@ impl Config {
             .unwrap_or_else(|| keys::unique_client_name(&keys::client_name(), id))
     }
 
+    /// Add an Agent, or replace the entry of the same name when pairing again. The
+    /// first Agent paired becomes the default, so `run` works with no flags.
     pub fn upsert(&mut self, agent: Agent) {
         self.agents.retain(|a| a.name != agent.name);
 
@@ -199,7 +199,7 @@ impl Config {
         self.agents.push(agent);
     }
 
-    /// Forget a box. Clears the default too when it pointed at that box, so the
+    /// Forget an Agent. Clears the default too when it pointed at that Agent, so the
     /// config never names an agent that is not there.
     pub fn remove(&mut self, name: &str) -> anyhow::Result<Agent> {
         let Some(index) = self.agents.iter().position(|a| a.name == name) else {
@@ -369,14 +369,14 @@ mod tests {
     }
 
     #[test]
-    fn a_new_box_gets_a_name_unique_to_this_machine() {
+    fn a_new_agent_gets_a_name_unique_to_this_machine() {
         let name = config("").client_for("192.168.1.9", "3f9c2ab71e");
 
         assert!(name.ends_with("-3f9c2a"), "name was: {name}");
     }
 
     #[test]
-    fn linking_a_saved_box_again_keeps_its_name() {
+    fn linking_a_saved_agent_again_keeps_its_name() {
         let mut config = config("");
         let mut saved = agent("archbox");
         saved.client = Some("laptop-8d04e6".to_string());
@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn a_box_linked_before_unique_names_keeps_the_hostname() {
+    fn an_agent_linked_before_unique_names_keeps_the_hostname() {
         let mut config = config("");
         config.upsert(agent("archbox"));
 
@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn the_first_box_paired_becomes_the_default() {
+    fn the_first_agent_paired_becomes_the_default() {
         let mut config = config("");
         config.upsert(agent("archbox"));
 
@@ -424,7 +424,7 @@ mod tests {
     }
 
     #[test]
-    fn removing_the_default_box_clears_the_default() {
+    fn removing_the_default_agent_clears_the_default() {
         let mut config = config(TWO);
         config.remove("laptop").unwrap();
 
@@ -433,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn a_box_with_cached_specs_survives_a_toml_round_trip() {
+    fn an_agent_with_cached_specs_survives_a_toml_round_trip() {
         let mut with_specs = agent("archbox");
         with_specs.daemon_port = Some(7433);
         with_specs.specs = Some(Specs {

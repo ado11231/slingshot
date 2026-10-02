@@ -353,7 +353,8 @@ pub fn prepare_artifacts(paths: &Paths) -> anyhow::Result<Vec<(String, String)>>
     Ok(artifacts::variables(&rules))
 }
 
-/// Environment targets must be environment filenames in ordinary project folders.
+/// The file name a stored environment file gets: its target in hex, so a nested target such
+/// as `api/.env` becomes one flat name that cannot leave the environment folder.
 fn stored_name(target: &str) -> String {
     target.bytes().map(|b| format!("{b:02x}")).collect()
 }

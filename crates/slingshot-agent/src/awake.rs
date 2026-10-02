@@ -1,5 +1,5 @@
 //! Keeps the Agent from sleeping on its own while `slingshot start` runs, because a sleeping
-//! box cannot be reached from anywhere. Wraps the system's own tool, and ties its lock to
+//! Agent cannot be reached from anywhere. Wraps the system's own tool, and ties its lock to
 //! this process so the lock ends with `start`, even when `start` is killed outright.
 
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -26,7 +26,7 @@ struct Tool {
 }
 
 /// Take the lock with whichever tool this system has. `None` means nothing could hold it,
-/// and the box may sleep.
+/// and the Agent may sleep.
 pub fn hold() -> Option<Awake> {
     [systemd_inhibit(), caffeinate()]
         .into_iter()

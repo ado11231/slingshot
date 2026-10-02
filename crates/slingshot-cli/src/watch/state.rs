@@ -1,6 +1,6 @@
 //! Deciding when something is worth a notification, and saying it the way a person would.
-//! Each observation of the box goes in, and the notices it earns come out, so the rules
-//! can be tested without a box.
+//! Each observation of the Agent goes in, and the notices it earns come out, so the rules
+//! can be tested without an Agent.
 
 use super::event::{self, Machine, Notice, NoticeKind};
 use crate::commands::health::{MEMORY, TEMPERATURE};
@@ -13,7 +13,7 @@ use std::collections::HashSet;
 /// A run shorter than this finished while you were still looking at it.
 const WORTH_NOTICING: u64 = 10;
 
-/// Failed checks in a row before the box counts as unreachable, so one slow answer is not
+/// Failed checks in a row before the Agent counts as unreachable, so one slow answer is not
 /// reported as an outage.
 const FAILURES_BEFORE_UNREACHABLE: u32 = 2;
 
@@ -53,12 +53,12 @@ impl Watch {
         &self.name
     }
 
-    /// Failed checks since the box last answered.
+    /// Failed checks since the Agent last answered.
     pub fn failures(&self) -> u32 {
         self.failures
     }
 
-    /// The box answered, over the path named `path`.
+    /// The Agent answered, over the path named `path`.
     pub fn reached(&mut self, path: &str) -> Vec<Notice> {
         self.failures = 0;
         if !std::mem::take(&mut self.unreachable) {
@@ -72,7 +72,7 @@ impl Watch {
         }]
     }
 
-    /// The box did not answer, for the reason in `error`. The notice uses the same plain
+    /// The Agent did not answer, for the reason in `error`. The notice uses the same plain
     /// words as the offline screen rather than the raw error.
     pub fn failed(&mut self, error: &str) -> Vec<Notice> {
         self.failures += 1;

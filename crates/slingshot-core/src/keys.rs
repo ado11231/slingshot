@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// The comment written into slingshot's public key, and the marker `unlink` looks for
-/// when taking that key back off a box. Both sides have to agree on it, which is
+/// when taking that key back off an Agent. Both sides have to agree on it, which is
 /// why it lives here rather than on either side.
 pub fn marker(client_name: &str) -> String {
     format!("slingshot:{client_name}")
@@ -60,7 +60,7 @@ fn host_pattern(host: &str, port: Option<u16>) -> String {
     }
 }
 
-/// Record a box's ssh host keys so the first connection needs no fingerprint check.
+/// Record an Agent's ssh host keys so the first connection needs no fingerprint check.
 /// Older entries are replaced, so pairing again after a rebuild still works.
 pub fn learn_host(host: &str, port: Option<u16>, host_keys: &[String]) -> anyhow::Result<PathBuf> {
     let file = config::known_hosts_path()?;
@@ -82,7 +82,7 @@ pub fn learn_host(host: &str, port: Option<u16>, host_keys: &[String]) -> anyhow
     Ok(file)
 }
 
-/// Forget a box's host keys, so nothing is left pointing at a machine you unlinked.
+/// Forget an Agent's host keys, so nothing is left pointing at a machine you unlinked.
 pub fn forget_host(host: &str, port: Option<u16>) -> anyhow::Result<()> {
     let file = config::known_hosts_path()?;
 
@@ -94,7 +94,7 @@ pub fn forget_host(host: &str, port: Option<u16>) -> anyhow::Result<()> {
     write_lines(&file, &lines)
 }
 
-/// Every line of the file except the ones for this box.
+/// Every line of the file except the ones for this Agent.
 fn without_host(file: &Path, pattern: &str) -> anyhow::Result<Vec<String>> {
     let existing = fs::read_to_string(file).unwrap_or_default();
 
@@ -107,7 +107,7 @@ fn without_host(file: &Path, pattern: &str) -> anyhow::Result<Vec<String>> {
 }
 
 /// Replace an SSH line file in one step. Truncating in place would leave the file empty
-/// if the write failed partway, which for `authorized_keys` locks the owner out of the box.
+/// if the write failed partway, which for `authorized_keys` locks the owner out of the Agent.
 fn write_lines(file: &Path, lines: &[String]) -> anyhow::Result<()> {
     if let Some(parent) = file.parent() {
         fs::create_dir_all(parent)

@@ -1,4 +1,4 @@
-//! `slingshot internal-watch`: keeps one control connection to the box and prints what the
+//! `slingshot internal-watch`: keeps one control connection to the Agent and prints what the
 //! menu bar app shows and notifies, one JSON line at a time. The app starts it and closes
 //! its input to stop it, so it never outlives the app. A `retry` line on its input skips the
 //! wait before the next attempt, for the app's Try again button. When Slingshot is updated,
@@ -31,7 +31,7 @@ const TICK_LIMIT: Duration = Duration::from_secs(15);
 /// its own thread, so a busy or stalled connection attempt can never delay it.
 const UPDATE_EVERY: Duration = Duration::from_secs(5);
 
-/// Waits between attempts while the box is unreachable, longest last.
+/// Waits between attempts while the Agent is unreachable, longest last.
 const BACKOFF: [Duration; 4] = [
     Duration::from_secs(2),
     Duration::from_secs(5),
@@ -94,7 +94,7 @@ pub async fn run(agent: Option<String>) -> anyhow::Result<i32> {
     }
 }
 
-/// One connection's worth of watching. It returns only when the box stops answering, and
+/// One connection's worth of watching. It returns only when the Agent stops answering, and
 /// the caller reconnects. Configuration is read again each time, so linking or unlinking
 /// takes effect without restarting the app.
 async fn session(agent: Option<&str>, watch: &mut Option<Watch>) -> anyhow::Result<Infallible> {

@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn a_lost_connection_names_the_box_and_where_to_look() {
+    fn a_lost_connection_names_the_agent_and_where_to_look() {
         let message = lost_connection("archbox");
         assert!(
             message.starts_with("Lost connection to archbox."),

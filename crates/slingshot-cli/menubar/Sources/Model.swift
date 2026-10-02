@@ -34,7 +34,7 @@ struct Gpu: Decodable {
 }
 
 struct Fix: Decodable {
-    /// `agent` for the box, `client` for this machine.
+    /// `agent` for the Agent, `client` for this machine.
     let machine: String
     let command: String
 }
@@ -93,7 +93,7 @@ func decodeEvent(_ line: Data) -> Event? {
     }
 }
 
-/// `18.0 GiB` or `512 MiB`, matching how the command line prints sizes.
+/// `18.0 GiB`, or whole MiB such as `512 MiB` below 1 GiB.
 func capacity(_ mib: UInt64) -> String {
     mib >= 1024 ? String(format: "%.1f GiB", Double(mib) / 1024) : "\(mib) MiB"
 }

@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// How long a shared iroh connection outlives its last ssh call. Long enough to carry one
-/// command's control, sync, and run calls, short enough that a box that went away is
+/// command's control, sync, and run calls, short enough that an Agent that went away is
 /// noticed on the next command rather than minutes later.
 pub const SHARED_FOR_SECONDS: u32 = 30;
 
@@ -28,8 +28,8 @@ pub fn proxy_command(key: &str) -> String {
 }
 
 /// Where ssh keeps the connection it shares between calls over iroh, so one command pays
-/// for the iroh handshake once. Kept in a private folder and named by the box's key, so
-/// each box gets its own. `None` when no folder fits or none can be made private, which
+/// for the iroh handshake once. Kept in a private folder and named by the Agent's key, so
+/// each Agent gets its own. `None` when no folder fits or none can be made private, which
 /// only means no sharing.
 pub fn shared_socket(key: &str) -> Option<PathBuf> {
     let user = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
@@ -80,7 +80,7 @@ async fn bind() -> anyhow::Result<Endpoint> {
         .context("Could not start iroh")
 }
 
-/// Why a box could not be reached over iroh. Found by trying once directly, because ssh
+/// Why an Agent could not be reached over iroh. Found by trying once directly, because ssh
 /// hides whatever its ProxyCommand printed.
 #[derive(Debug, PartialEq)]
 pub enum Diagnosis {
@@ -271,7 +271,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_box_that_went_away_is_offline() {
+    async fn an_agent_that_went_away_is_offline() {
         let agent = endpoint(vec![ALPN.to_vec()]).await;
         let addr = agent.addr();
         agent.close().await;
@@ -284,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn every_failure_names_the_box_and_a_fix() {
+    fn every_failure_names_the_agent_and_a_fix() {
         for diagnosis in [
             Diagnosis::NoInternet,
             Diagnosis::Offline,

@@ -1,4 +1,4 @@
-//! `slingshot unlink`: clean up this Client's Slingshot data on a box, then forget it.
+//! `slingshot unlink`: clean up this Client's Slingshot data on an Agent, then forget it.
 
 use crate::client::Refused;
 use crate::project;

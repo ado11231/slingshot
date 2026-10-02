@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use spake2::{Ed25519Group, Identity, Password, Spake2};
 
-/// Default Agent control port.
+/// The pairing port `slingshot start` tries first.
 pub const DEFAULT_PORT: u16 = 7433;
 
 /// What the Client sends. A pairing is `Start`, then `Join`, on one connection.
@@ -18,7 +18,7 @@ pub const DEFAULT_PORT: u16 = 7433;
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Request {
     /// Retired. Older Clients sent these unauthenticated; the daemon now answers with
-    /// an instruction to update.
+    /// an instruction to update. Health now travels over the control channel.
     Info,
     Health,
     /// Retired. Older Clients sent the code itself here. Its fields are ignored, so the
@@ -136,7 +136,7 @@ impl Key {
     }
 }
 
-/// Everything `link` needs to be able to reach the box from now on.
+/// Everything `link` needs to be able to reach the Agent from now on.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Paired {
     /// The display name chosen on the Agent. Config stores this so the
@@ -144,12 +144,12 @@ pub struct Paired {
     pub name: String,
     /// The account the installed key belongs to, so ssh knows who to log in as.
     pub user: String,
-    /// The box's ssh host keys, so the Client can recognise it later without
+    /// The Agent's ssh host keys, so the Client can recognize it later without
     /// anybody being asked to eyeball a fingerprint.
     pub host_keys: Vec<String>,
     /// The Agent's Slingshot program path, so the Client can start helpers over SSH.
     pub program: Option<String>,
-    /// Every address the box answers on, so the Client can switch to another one when the
+    /// Every address the Agent answers on, so the Client can switch to another one when the
     /// address it paired on stops answering.
     #[serde(default)]
     pub addresses: Vec<String>,
@@ -169,7 +169,7 @@ pub struct Specs {
     pub cores: usize,
     pub memory_mib: u64,
     pub disk_total_mib: u64,
-    /// Tooling that was found on the box, such as docker or tmux.
+    /// Tooling that was found on the Agent, such as docker or tmux.
     pub tools: Vec<String>,
     /// Last, because toml cannot put a plain value after a list of tables.
     pub gpus: Vec<Gpu>,
@@ -200,7 +200,7 @@ pub struct Health {
 }
 
 /// Live GPU numbers. VRAM is reported as free rather than total, because a
-/// desktop session holds a few hundred megabytes even when the box looks idle.
+/// desktop session holds a few hundred megabytes even when the Agent looks idle.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GpuHealth {
     pub name: String,

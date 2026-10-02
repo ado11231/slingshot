@@ -110,7 +110,7 @@ impl std::error::Error for Refused {}
 /// One SSH connection to the Agent's private control socket.
 pub struct Control {
     name: String,
-    /// The box's iroh key when this connection went over iroh, for explaining a failure.
+    /// The Agent's iroh key when this connection went over iroh, for explaining a failure.
     iroh: Option<String>,
     child: Child,
     input: ChildStdin,

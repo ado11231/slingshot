@@ -1,4 +1,4 @@
-//! `slingshot link <code>`: pair with a box and remember it.
+//! `slingshot link <code>`: pair with an Agent and remember it.
 
 use crate::client;
 use crate::keys;
@@ -11,7 +11,7 @@ use slingshot_core::protocol::Joining;
 use slingshot_core::step;
 use slingshot_core::tunnel;
 
-/// Take a pairing code, install this machine's key on the box, and save what it
+/// Take a pairing code, install this machine's key on the Agent, and save what it
 /// takes to reach it again. Every step says what it did.
 ///
 /// One `ssh_port` feeds both the learned host keys and the saved Agent, because `unlink`
@@ -121,7 +121,7 @@ fn unreachable(host: &str, port: u16) -> Check {
     )
 }
 
-/// Split a pairing code into the box's address and the one time token. Codes are
+/// Split a pairing code into the Agent's address and the one time token. Codes are
 /// readable on purpose, so you can see which machine you are about to trust.
 fn parse_code(code: &str) -> anyhow::Result<(String, u16, String)> {
     let parts: Vec<&str> = code.trim().split(':').collect();

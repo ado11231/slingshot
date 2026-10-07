@@ -10,10 +10,15 @@ homepage.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-# The package is slingshot-cli, but the program it produces is called slingshot.
+# The package is slingshot-cli, but the program it produces is called slingshot, with sling
+# as its short name. Both run the code in lib.rs.
 [[bin]]
 name = "slingshot"
 path = "src/main.rs"
+
+[[bin]]
+name = "sling"
+path = "src/bin/sling.rs"
 
 [dependencies]
 slingshot-core = { path = "../slingshot-core", version = "0.1.0" }

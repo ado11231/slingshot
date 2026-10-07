@@ -223,7 +223,7 @@ async fn pairing(
     let (chosen, listeners) = listen(port).await?;
     if chosen != port {
         presentation::warning(format!(
-            "Port {port} is in use, perhaps by slingshot start on another account, so this one uses {chosen}"
+            "Port {port} is in use, perhaps by another slingshot start, so this one uses {chosen}"
         ));
     }
     let addresses: Vec<SocketAddr> = listeners

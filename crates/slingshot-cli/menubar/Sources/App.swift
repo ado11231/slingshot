@@ -43,12 +43,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// Only the icon lives in the menu bar. The numbers are one click away, in the panel.
+/// Only the logo lives in the menu bar. The numbers are one click away, in the panel.
 struct MenuBarLabel: View {
     let watcher: Watcher
 
     var body: some View {
-        Image(systemName: "server.rack")
+        Image(nsImage: Self.logo)
             .opacity(watcher.status?.online == true ? 1 : 0.5)
     }
+
+    /// The logo's shape at menu bar size, scaled without smoothing so its pixels stay sharp. As a
+    /// template image, macOS draws it in the menu bar's own color, white or black, like other icons.
+    /// A bundle without the logo falls back to a system symbol rather than an empty space.
+    private static let logo: NSImage = {
+        guard let source = Bundle.main.image(forResource: "Logo") else {
+            return NSImage(systemSymbolName: "server.rack", accessibilityDescription: "Slingshot") ?? NSImage()
+        }
+        let logo = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            NSGraphicsContext.current?.imageInterpolation = .none
+            source.draw(in: rect)
+            return true
+        }
+        logo.isTemplate = true
+        return logo
+    }()
 }

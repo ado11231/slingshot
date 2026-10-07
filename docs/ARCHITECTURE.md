@@ -307,7 +307,7 @@ flowchart LR
 * Thresholds, notification rules, and wording all live in `crates/slingshot-cli/src/watch/`.
 * The line format has its own version, `watch::event::VERSION`. The app refuses versions it does not understand.
 * The Try again button writes `retry` to the helper, which reconnects at once.
-* The app's Swift source and logo are built into the `slingshot` program. `slingshot menubar` writes them to Slingshot's data folder, builds it with Swift, signs it for this machine, and installs it in `~/Applications`.
+* The app's Swift source, logo, and icon are built into the `slingshot` program. `slingshot menubar` writes them to Slingshot's data folder, builds it with Swift, signs it for this machine, and installs it in `~/Applications`.
 * The installed app holds a fingerprint of the source it was built from, so `slingshot menubar` rebuilds only when that source changed.
 * `slingshot menubar` also saves the location of the `slingshot` program for the app, because apps started at login cannot find it on their own. It restarts a running app so the app uses the current program.
 * `slingshot link` runs the same step on a Mac: it restarts an installed app, or explains the app and asks once.
@@ -465,6 +465,7 @@ slingshot/
 | --- | --- |
 | `Package.swift` | The Swift package definition. No outside dependencies. |
 | `Info.plist` | The app's identity. Hides the Dock icon. |
+| `AppIcon.icns` | The app's icon, which macOS shows on its notifications and in Finder. Made from the logo at each size without smoothing. |
 | `Logo.png` | The logo, drawn in the menu bar in the menu bar's own color. A copy of `docs/media/slingshot.png`, kept inside the crate so it ships with it. |
 | `Sources/App.swift` | The app's starting point and menu bar icon. |
 | `Sources/Watcher.swift` | Starts `internal-watch`, reads its lines, restarts it if it stops, and sends `retry`. |

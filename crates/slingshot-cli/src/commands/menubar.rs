@@ -7,7 +7,7 @@
 #[cfg(target_os = "macos")]
 const BUNDLE_ID: &str = "dev.slingshot.menubar";
 
-/// The app's source and logo, built into this program so `slingshot menubar` can build the
+/// The app's source, logo, and icon, built into this program so `slingshot menubar` can build the
 /// app even after the Slingshot source folder is gone.
 #[cfg(target_os = "macos")]
 const SOURCES: &[(&str, &[u8])] = &[
@@ -17,6 +17,7 @@ const SOURCES: &[(&str, &[u8])] = &[
     ),
     ("Info.plist", include_bytes!("../../menubar/Info.plist")),
     ("Logo.png", include_bytes!("../../menubar/Logo.png")),
+    ("AppIcon.icns", include_bytes!("../../menubar/AppIcon.icns")),
     (
         "Sources/App.swift",
         include_bytes!("../../menubar/Sources/App.swift"),
@@ -361,8 +362,9 @@ fn swift(args: &[&str]) -> anyhow::Result<String> {
     )
 }
 
-/// Put the built program, its Info.plist, its logo, and the source stamp into an app bundle, then
-/// sign it for this machine only, which is all macOS needs to run a locally built app.
+/// Put the built program, its Info.plist, its logo and icon, and the source stamp into an app
+/// bundle, then sign it for this machine only, which is all macOS needs to run a locally built
+/// app.
 #[cfg(target_os = "macos")]
 fn assemble(
     package: &std::path::Path,
@@ -384,10 +386,12 @@ fn assemble(
     )
     .context("Swift finished but the app program was not where it said")?;
     fs::copy(package.join("Info.plist"), contents.join("Info.plist"))?;
-    fs::copy(
-        package.join("Logo.png"),
-        contents.join("Resources").join("Logo.png"),
-    )?;
+    for resource in ["Logo.png", "AppIcon.icns"] {
+        fs::copy(
+            package.join(resource),
+            contents.join("Resources").join(resource),
+        )?;
+    }
     fs::write(app.join(STAMP), stamp_of(SOURCES))?;
 
     let signed = std::process::Command::new("codesign")

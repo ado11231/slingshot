@@ -112,7 +112,9 @@ pub async fn offer(name: &str) -> anyhow::Result<()> {
                     "It is built with Swift into ~/Applications/Slingshot.app and starts at login."
                 )
             );
-            if slingshot_core::presentation::confirm("Add it to your menu bar now?".to_string()).await? {
+            if slingshot_core::presentation::confirm("Add it to your menu bar now?".to_string())
+                .await?
+            {
                 show(name, None).await?;
             } else {
                 eprintln!(

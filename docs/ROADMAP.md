@@ -100,6 +100,9 @@
 14. `slingshot tools` names Claude Code or Codex when it is installed on the Agent but signed out, and offers to sign in.
 15. `slingshot start` moves to the next free port when the pairing port is taken, such as by another account on the same Agent.
 16. On an Agent account that cannot use `sudo`, the tools step installs what that account can and lists the rest for an admin.
+17. Notifications show the Slingshot icon.
+18. The first `slingshot start` offers to start Slingshot by itself: a systemd user service with linger on Linux, and a launchd agent on macOS. `--boot` sets it up later, and `--remove` takes it away. A second `slingshot start` beside the service makes codes.
+19. An Agent with sleep turned off in systemd says so instead of warning that it may sleep.
 
 * **Remaining:**
 
@@ -127,7 +130,8 @@
 
 ## Known Limitations
 
-* `slingshot start` does not start on its own when the Agent restarts.
+* On Linux, a boot service with nobody logged in cannot block sleep. An Agent that can sleep may suspend after about 15 minutes idle. Issue #68 tracks a fix.
+* Starting by itself on a macOS Agent is untested.
 * If the Agent loses power or crashes, the first connection over iroh afterwards can wait up to about 20 seconds for the old connection to time out. A normal stop, or closing the terminal running `slingshot start`, no longer causes this.
 * Edits a coding agent makes on the Agent stay there until `slingshot sync --pull`.
 * The tools step installs Docker only with `pacman`, `apt`, `dnf`, and `zypper`, and Git, Node, and Python only with the package managers it knows.
@@ -269,3 +273,14 @@
 4. Then both machines ran the branch, with archbox in two real terminals. The first `slingshot start` showed the linked Mac and no code. The second showed the same screen, and pressing Enter there printed a code for port 7434.
 5. The Mac's `slingshot health` and menu bar reached archbox on protocol 11.
 6. Not tested: linking a Client with a code made beside the daemon, because the Mac's link was left as it is.
+
+### Starting By Itself: October 6, 2026
+
+* archbox ran the branch for #67. archbox has `sleep.target` and `suspend.target` masked.
+
+1. The first `slingshot start` at archbox listed the unit file and three commands, including `loginctl enable-linger ado`, and asked once. After yes, the service was `active (running)`, and `Linger=yes`.
+2. After `sudo reboot`, with nobody logged in, the Mac ran `slingshot run` about 20 seconds after boot.
+3. At boot the sleep block was refused, as expected without a login. 25 minutes after boot, GNOME's login screen asked to suspend, and systemd refused because sleep is masked. archbox stayed reachable.
+4. `slingshot start --remove` asked, then removed the service. `slingshot start --boot` installed it again, printed `Slingshot started  0.5s` and `Reachable from other networks through iroh`, then the status screen.
+5. The service log printed `Sleep is turned off on this machine, so it stays reachable`.
+6. Not tested: the macOS launchd agent, and a Linux Agent where sleep is on.

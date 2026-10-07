@@ -392,15 +392,21 @@
 
 ### App Too Old
 
-* **Message:** The panel says `Update the app with: slingshot menubar`
+* **Message:** The panel says `Slingshot speaks format <n>, and this app speaks format <m>`
 * **Meaning:** The app is older than the `slingshot` program it runs.
 * **Fix:** Run `slingshot menubar`. It rebuilds the app.
 
 ### App Cannot Find Slingshot
 
-* **Message:** The panel asks you to run `slingshot menubar` once from a terminal.
-* **Meaning:** Apps started at login cannot find the `slingshot` program on their own.
+* **Message:** The panel says `Can't find the slingshot program`, and names where it was.
+* **Meaning:** Apps started at login cannot find the `slingshot` program on their own, so `slingshot menubar` saves its path. That program was moved or deleted, or was never saved.
 * **Fix:** Run `slingshot menubar`. Run it again after moving `slingshot` to another folder.
+
+### App Runs A Cargo Build
+
+* **Message:** `! The app will run <path>, which cargo clean deletes`
+* **Meaning:** `slingshot menubar` ran from a build inside a cargo `target` folder. When that build is deleted, the app cannot find Slingshot.
+* **Fix:** Run `cargo install --path crates/slingshot-cli`, then `slingshot menubar` again.
 
 ### Could Not Leave Login Items
 

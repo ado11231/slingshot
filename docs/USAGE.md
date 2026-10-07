@@ -59,6 +59,7 @@
    ```
 
 * To update later, run `cargo install slingshot-cli` again on both machines. Both must run the same version.
+* This also installs `sling`, a short name for `slingshot`. `sling run cargo build` and `slingshot run cargo build` do the same thing. These docs always write `slingshot`.
 
 ## Set Up
 

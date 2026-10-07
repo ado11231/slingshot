@@ -404,11 +404,11 @@ slingshot/
 
 | File | Purpose | Uses | Used By |
 | --- | --- | --- | --- |
-| `lib.rs` | `slingshot start`: setup checks, the start screen, pairing, and starting the other parts. `slingshot internal-daemon`: the same parts without pairing, for a boot service. | `awake`, `clients`, `service`, `tunnel` | Client `main` |
-| `service.rs` | The private control socket, the `internal-control` helper that reaches it, and the tools probe run in the login shell. | `clients`, `jobs`, `projects` | `lib`, `runner`, Client `main` |
+| `lib.rs` | `slingshot start`: setup checks, the start screen, pairing, and starting the other parts. `slingshot internal-daemon`: the same parts without pairing, for a boot service. | `awake`, `clients`, `service`, `tunnel` | Client `lib` |
+| `service.rs` | The private control socket, the `internal-control` helper that reaches it, and the tools probe run in the login shell. | `clients`, `jobs`, `projects` | `lib`, `runner`, Client `lib` |
 | `projects.rs` | Project storage: source copies, sync locks, build output, and environment files. | `jobs` | `service`, `jobs`, `runner` |
 | `jobs.rs` | Job records, `tmux` sessions, and safe stopping. | `projects` | `service`, `projects`, `runner` |
-| `runner.rs` | `slingshot internal-run`: runs one command in the project copy with a real terminal. | `jobs`, `projects`, `service` | Client `main` |
+| `runner.rs` | `slingshot internal-run`: runs one command in the project copy with a real terminal. | `jobs`, `projects`, `service` | Client `lib` |
 | `clients.rs` | The Clients allowed to connect over iroh, and their names for the start screen. | none | `lib`, `service`, `tunnel` |
 | `tunnel.rs` | The iroh endpoint, which passes paired Clients to the local ssh server. | `clients` | `lib` |
 | `awake.rs` | Keeps the Agent awake while `slingshot start` runs. | none | `lib` |
@@ -417,11 +417,13 @@ slingshot/
 
 ### `slingshot-cli`
 
-* The `slingshot` program. Depends on both other crates.
+* The `slingshot` program, and `sling`, its short name. Depends on both other crates.
 
 | File | Purpose | Uses | Used By |
 | --- | --- | --- | --- |
-| `main.rs` | Reads the command line with `clap`, calls the matching command, and defines the hidden `internal-` helpers. | every command; Agent `lib`, `runner`, `service` | none, it is the entry point |
+| `lib.rs` | Reads the command line with `clap`, calls the matching command, and defines the hidden `internal-` helpers. | every command; Agent `lib`, `runner`, `service` | `main`, `bin/sling` |
+| `main.rs` | The `slingshot` program. Calls `lib`. | `lib` | none, it is the entry point |
+| `bin/sling.rs` | The `sling` program, the same as `slingshot` under a shorter name. Calls `lib`. | `lib` | none, it is an entry point |
 | `client.rs` | The pairing connection, and the `Control` connection over `ssh`. | `route`, `ssh`, `tunnel` | `transfer`, `watch`, most commands |
 | `route.rs` | Chooses the path: local network, tailnet, or iroh. | none | `client`, `ssh`, `transfer`, `watch`, `run`, `attach` |
 | `ssh.rs` | Builds every `ssh` call, with safe quoting and a shared connection. | `route`, `tunnel` | `client`, `run`, `attach`, `unlink` |
@@ -430,14 +432,14 @@ slingshot/
 | `project.rs` | Finds the current project and its ID on each Agent. | none | `transfer`, `tunnel`, most commands |
 | `keys.rs` | Creates Slingshot's own ssh key. | none | `link` |
 | `live.rs` | Full screen views that refresh until you press Q or Ctrl C. | none | `health` |
-| `watch/mod.rs` | `slingshot internal-watch`: polls the Agent and prints lines for the menu bar app. | `client`, `route`, `watch/event`, `watch/state` | `main` |
+| `watch/mod.rs` | `slingshot internal-watch`: polls the Agent and prints lines for the menu bar app. | `client`, `route`, `watch/event`, `watch/state` | `lib` |
 | `watch/event.rs` | The line format, value levels, and plain explanations of failures. | `commands/health` | `watch/mod`, `watch/state` |
 | `watch/state.rs` | Decides when a notification is due, and writes its wording. | `commands/health`, `watch/event` | `watch/mod` |
 
 ### Commands
 
 * One file per command, in `crates/slingshot-cli/src/commands/`.
-* Each is called by `main.rs`. Shared pieces are noted below.
+* Each is called by `lib.rs`. Shared pieces are noted below.
 
 | File | Command | Uses |
 | --- | --- | --- |

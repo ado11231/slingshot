@@ -41,6 +41,13 @@ pub fn allowed(root: &Path, key: &PublicKey) -> anyhow::Result<bool> {
         .any(|text| tunnel::public_key(text).is_ok_and(|known| known == *key)))
 }
 
+/// The names of the paired Clients, for the start screen. A Client from before iroh is
+/// linked through ssh alone, so it is not listed.
+pub fn names(root: &Path) -> anyhow::Result<Vec<String>> {
+    let clients: Clients = storage::read_json(&path(root))?;
+    Ok(clients.keys.into_keys().collect())
+}
+
 fn change(root: &Path, update: impl FnOnce(&mut Clients)) -> anyhow::Result<()> {
     let _lock = storage::lock(&root.join("clients.lock"))?;
     let mut clients: Clients = storage::read_json(&path(root))?;
@@ -95,6 +102,24 @@ mod tests {
         let root = Root::new();
 
         assert!(allow(&root.0, "laptop", "not a key").is_err());
+    }
+
+    #[test]
+    fn names_lists_each_paired_client_once() {
+        let root = Root::new();
+        assert!(names(&root.0).unwrap().is_empty());
+
+        let laptop = SecretKey::generate().public();
+        allow(&root.0, "laptop", &laptop.to_string()).unwrap();
+        allow(
+            &root.0,
+            "desktop",
+            &SecretKey::generate().public().to_string(),
+        )
+        .unwrap();
+        allow(&root.0, "laptop", &laptop.to_string()).unwrap();
+
+        assert_eq!(names(&root.0).unwrap(), ["desktop", "laptop"]);
     }
 
     #[test]

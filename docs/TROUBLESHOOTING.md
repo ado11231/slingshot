@@ -37,13 +37,31 @@
 ### Already Running
 
 * **Message:** `Another slingshot start is already running for this account`
-* **Meaning:** Only one `slingshot start` can run per user account.
-* **Fix:** Use the one already running, or stop it with Ctrl C and start again.
+* **Meaning:** Two `slingshot start` commands began at the same moment on one account.
+* **Fix:** Run `slingshot start` again. It shows the one already running.
+
+### Different Version Already Running
+
+* **Message:** `A different version of Slingshot is already running for this account`
+* **Meaning:** The `slingshot start` already running comes from another version of Slingshot, usually one from before an update.
+* **Fix:** Stop it with Ctrl C where it runs, then run `slingshot start` again.
+
+### Running Agent Did Not Answer
+
+* **Message:** `Slingshot is running for this account but did not answer`
+* **Meaning:** Another `slingshot start` runs on this account, but it did not reply when asked about itself.
+* **Fix:** Stop the other `slingshot start` with Ctrl C, then run `slingshot start` again.
+
+### Already Running Under Another Name
+
+* **Message:** `Slingshot is already running here as archbox, not <name>`
+* **Meaning:** `--name` asked for a different name than the Agent already running. Linked Clients know the Agent by its current name.
+* **Fix:** Run `slingshot start` without `--name`.
 
 ### Port In Use
 
-* **Message:** `! Port 7433 is in use, perhaps by slingshot start on another account, so this one uses 7434`
-* **Meaning:** Another program, or another account's `slingshot start`, has the pairing port. Slingshot moved to the next free one.
+* **Message:** `! Port 7433 is in use, perhaps by another slingshot start, so this one uses 7434`
+* **Meaning:** Another program, or another `slingshot start` on this or another account, has the pairing port. Slingshot moved to the next free one.
 * **Fix:** Nothing. The printed `slingshot link` line carries the new port.
 
 ### No Free Port

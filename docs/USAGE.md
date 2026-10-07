@@ -75,6 +75,8 @@
 
 * The code works once, expires after 10 minutes, and stops working after 3 wrong tries. Press Enter for a new one.
 * The code never crosses the network, so someone watching the network cannot use it.
+* Once a Client is linked, `slingshot start` lists the linked Clients instead of a code. Press Enter when you want a code to link another machine.
+* Running `slingshot start` again while it already runs on the same account shows the running Agent and lets you make a code. Ctrl C there only leaves. The first one keeps running.
 
 | Option | Effect |
 | --- | --- |

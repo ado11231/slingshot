@@ -110,9 +110,7 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
         return beside(name, port, root).await;
     }
 
-    let name = name
-        .or_else(sysinfo::System::host_name)
-        .unwrap_or_else(|| "agent".to_string());
+    let name = agent_name(name);
     let online = Arc::new(AtomicBool::new(false));
     let _service = service::start(name.clone(), Arc::clone(&online))?;
     let identity = slingshot_core::tunnel::identity(&root)?;
@@ -129,16 +127,7 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
     let endpoint = tunnel::start(identity, agent.root.clone()).await?;
     tokio::spawn(mark_online(endpoint.clone(), online));
 
-    let _awake = match awake::hold() {
-        Some(awake) => {
-            presentation::success("Keeping this machine awake while Slingshot runs");
-            Some(awake)
-        }
-        None => {
-            presentation::warning(sleep_warning(std::env::var_os("SSH_CONNECTION").is_some()));
-            None
-        }
-    };
+    let _awake = keep_awake();
 
     report_reach(&endpoint).await;
     show(
@@ -162,6 +151,41 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
     }
 
     Ok(0)
+}
+
+/// What a boot service runs: the control socket, iroh, and the lock that keeps the machine
+/// awake. It never opens the pairing port, so no code exists until someone runs
+/// `slingshot start`, which pairs beside it. The checks are left to that command, because
+/// nobody is here to read them, and at boot sshd may not be up yet.
+pub async fn daemon(name: Option<String>) -> anyhow::Result<i32> {
+    let root = service::root()?;
+    let name = agent_name(name);
+    let online = Arc::new(AtomicBool::new(false));
+    let _service = service::start(name.clone(), Arc::clone(&online))?;
+    let identity = slingshot_core::tunnel::identity(&root)?;
+    let endpoint = tunnel::start(identity, root).await?;
+    tokio::spawn(mark_online(endpoint.clone(), online));
+    let _awake = keep_awake();
+    presentation::success(format!("Slingshot is running on {name}"));
+
+    stopped().await?;
+    endpoint.close().await;
+    Ok(0)
+}
+
+fn agent_name(name: Option<String>) -> String {
+    name.or_else(sysinfo::System::host_name)
+        .unwrap_or_else(|| "agent".to_string())
+}
+
+/// Hold the awake lock for as long as the result lives, and say whether it worked.
+fn keep_awake() -> Option<awake::Awake> {
+    let held = awake::hold();
+    match held {
+        Some(_) => presentation::success("Keeping this machine awake while Slingshot runs"),
+        None => presentation::warning(sleep_warning(std::env::var_os("SSH_CONNECTION").is_some())),
+    }
+    held
 }
 
 /// Pair beside a daemon another `slingshot start` runs, such as one started at boot. Pairing
@@ -748,6 +772,12 @@ mod tests {
     fn a_first_start_leads_with_a_code_and_a_linked_agent_does_not() {
         assert!(first_code(&[]).is_some());
         assert!(first_code(&["laptop".to_string()]).is_none());
+    }
+
+    #[test]
+    fn a_chosen_name_wins_over_the_hostname() {
+        assert_eq!(agent_name(Some("archbox".into())), "archbox");
+        assert!(!agent_name(None).is_empty());
     }
 
     #[test]

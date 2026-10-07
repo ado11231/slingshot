@@ -64,6 +64,13 @@ enum Commands {
         args: Vec<String>,
     },
 
+    /// The Agent daemon a boot service runs, with no pairing port.
+    #[command(hide = true)]
+    InternalDaemon {
+        #[arg(long)]
+        name: Option<String>,
+    },
+
     #[command(about = "Agent: start Slingshot and print a pairing code")]
     Start {
         /// The name this Agent will be known by. Defaults to its hostname.
@@ -218,6 +225,7 @@ async fn main() {
         Commands::InternalRsh { args } => internal_rsh(args),
         Commands::InternalTunnel { key } => tunnel::run(key).await,
         Commands::InternalWatch => watch::run(cli.agent).await,
+        Commands::InternalDaemon { name } => slingshot_agent::daemon(name).await,
         Commands::Start { name, port } => slingshot_agent::start(name, port).await,
         Commands::Link { code, name } => commands::link::link(code, name).await,
         Commands::Unlink => commands::unlink::unlink(cli.agent).await,
@@ -351,6 +359,13 @@ mod tests {
             panic!("Expected internal rsh")
         };
         assert_eq!(args, ["slingshot", "rsync", "--server", "-a", ".", "."]);
+
+        let cli =
+            Cli::try_parse_from(["slingshot", "internal-daemon", "--name", "archbox"]).unwrap();
+        let Commands::InternalDaemon { name } = cli.command else {
+            panic!("Expected internal daemon")
+        };
+        assert_eq!(name.as_deref(), Some("archbox"));
     }
 
     #[test]

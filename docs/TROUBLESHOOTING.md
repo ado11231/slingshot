@@ -6,16 +6,17 @@
 ## Contents
 
 1. [Starting The Agent](#starting-the-agent)
-2. [Linking](#linking)
-3. [Setting Up Tools](#setting-up-tools)
-4. [Reaching The Agent](#reaching-the-agent)
-5. [Running Commands](#running-commands)
-6. [Syncing Files](#syncing-files)
-7. [Jobs](#jobs)
-8. [GPU](#gpu)
-9. [The Menu Bar App](#the-menu-bar-app)
-10. [Removing Slingshot](#removing-slingshot)
-11. [Getting Help](#getting-help)
+2. [Starting By Itself](#starting-by-itself)
+3. [Linking](#linking)
+4. [Setting Up Tools](#setting-up-tools)
+5. [Reaching The Agent](#reaching-the-agent)
+6. [Running Commands](#running-commands)
+7. [Syncing Files](#syncing-files)
+8. [Jobs](#jobs)
+9. [GPU](#gpu)
+10. [The Menu Bar App](#the-menu-bar-app)
+11. [Removing Slingshot](#removing-slingshot)
+12. [Getting Help](#getting-help)
 
 ## Starting The Agent
 
@@ -73,8 +74,8 @@
 ### Cannot Keep The Agent Awake
 
 * **Message:** `Could not stop this machine from sleeping`
-* **Meaning:** A warning. If the Agent sleeps, nothing can reach it until it wakes.
-* **Fix:** Change the Agent's power settings so it stays awake.
+* **Meaning:** A warning. If the Agent sleeps, nothing can reach it until it wakes. On Linux, a service started at boot with nobody logged in is not allowed to block sleep. GNOME's login screen suspends an idle machine after about 15 minutes. Issue #68 tracks a fix.
+* **Fix:** Turn sleep off on the Agent with `sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target`. Slingshot then prints `Sleep is turned off on this machine` instead of this warning.
 
 ### No Relay Answered
 
@@ -84,8 +85,52 @@
 
 ### Unreachable After A Restart
 
-* **Meaning:** `slingshot start` does not yet start on its own when the Agent turns on.
-* **Fix:** Log in to the Agent and run `slingshot start`.
+* **Meaning:** Slingshot does not start by itself on this Agent.
+* **Fix:** Run `slingshot start --boot` on the Agent.
+
+## Starting By Itself
+
+### Set Up But Not Running
+
+* **Message:** `Slingshot is set to start by itself but is not running`
+* **Meaning:** The service file exists, but the service stopped or failed.
+* **Fix:** Read its logs, shown in [Start By Itself](USAGE.md#start-by-itself). Then run `slingshot start --remove` and `slingshot start --boot`.
+
+### Did Not Start
+
+* **Message:** `Slingshot was set up to start at boot but did not start`
+* **Meaning:** The service was installed, but did not answer within 15 seconds.
+* **Fix:** Read its logs, fix what they report, then run `slingshot start --boot`.
+
+### A Setup Command Failed
+
+* **Message:** `systemctl --user enable --now slingshot.service failed: <reason>`, or the same for `launchctl`
+* **Meaning:** The service manager refused a step. The reason comes from it.
+* **Fix:** Fix the reason it gives, then run `slingshot start --boot`.
+
+### Starts At Login, Not At Boot
+
+* **Message:** `! Slingshot starts when you log in, not at boot`
+* **Meaning:** Linux did not allow linger without an admin password, so the service waits for a login.
+* **Fix:** Run the `sudo loginctl enable-linger <user>` command it prints.
+
+### Already Running When Setting Up
+
+* **Message:** `Slingshot is already running for this account. Stop the other slingshot start, then run slingshot start --boot again`
+* **Meaning:** A `slingshot start` in another terminal holds the Agent, so the service could not start.
+* **Fix:** Press Ctrl C in that terminal, then run `slingshot start --boot`.
+
+### Remove Needs A Terminal
+
+* **Message:** `Run slingshot start --remove in a terminal to confirm`
+* **Meaning:** Removing asks first, and there was no terminal to ask in.
+* **Fix:** Run it in a terminal on the Agent.
+
+### Not Supported Here
+
+* **Message:** `Starting at boot works on Linux and macOS`, or `A line break cannot go in a systemd unit`
+* **Meaning:** The system has no supported service manager, or the Agent name or program path contains a line break.
+* **Fix:** Run `slingshot start` by hand, or rename the Agent with `--name`.
 
 ## Linking
 

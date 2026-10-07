@@ -47,7 +47,7 @@
 | **Baseline** | The last version of the project that both machines agreed on. |
 | **Build output** | Files a build creates, such as `target` or `node_modules`. |
 | **Job** | One run or one session on the Agent. |
-| **Daemon** | A program that runs in the background. Here, the one started by `slingshot start`. |
+| **Daemon** | A program that runs in the background. Here, the one started by `slingshot start` or by the boot service. |
 
 ## The System At A Glance
 
@@ -154,6 +154,7 @@ flowchart TD
 * An Agent with linked Clients starts without a code, and makes one only when Enter is pressed.
 * A second `slingshot start` on the same account runs pairing in its own process, beside the daemon already running. It learns the daemon's name and release with the `Status` control request.
 * Pairing only writes `authorized_keys` and the list of iroh Clients, and the daemon reads both fresh. So the code stays in the process that printed it, and never reaches the daemon.
+* The boot service runs `slingshot internal-daemon`: the control service, iroh, and the awake lock, with no pairing port. So no code exists until someone runs `slingshot start` at the Agent, which pairs beside it.
 * `slingshot unlink` reverses pairing. It removes the key, deletes this Client's environment files, and forgets the Agent.
 
 ### Control
@@ -400,7 +401,7 @@ slingshot/
 
 ### `slingshot-agent`
 
-* The daemon started by `slingshot start`. Depends only on `slingshot-core`.
+* The daemon started by `slingshot start` or the boot service. Depends only on `slingshot-core`.
 
 | File | Purpose | Uses | Used By |
 | --- | --- | --- | --- |
@@ -411,7 +412,8 @@ slingshot/
 | `runner.rs` | `slingshot internal-run`: runs one command in the project copy with a real terminal. | `jobs`, `projects`, `service` | Client `main` |
 | `clients.rs` | The Clients allowed to connect over iroh, and their names for the start screen. | none | `lib`, `service`, `tunnel` |
 | `tunnel.rs` | The iroh endpoint, which passes paired Clients to the local ssh server. | `clients` | `lib` |
-| `awake.rs` | Keeps the Agent awake while `slingshot start` runs. | none | `lib` |
+| `awake.rs` | Keeps the Agent awake while the daemon runs, and checks whether sleep is turned off. | none | `lib` |
+| `boot.rs` | Starting by itself: writes the systemd user service or launchd agent, runs the service manager, and removes both. | none | `lib` |
 
 * `projects.rs` and `jobs.rs` use each other: a sync must know if a job is running, and a job must know where its project lives.
 

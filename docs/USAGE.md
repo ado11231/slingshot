@@ -70,8 +70,9 @@
    slingshot start
    ```
 
-2. Slingshot checks the machine, then prints a pairing code.
-3. Leave it running. While it runs, it keeps the machine awake.
+2. Slingshot checks the machine.
+3. The first time, it offers to start by itself, so the Agent stays reachable after you close the terminal and after a restart. It shows the file it writes and the commands it runs, then asks once. See [Start By Itself](#start-by-itself).
+4. Then it prints a pairing code. While Slingshot runs, it keeps the machine awake.
 
 * The code works once, expires after 10 minutes, and stops working after 3 wrong tries. Press Enter for a new one.
 * The code never crosses the network, so someone watching the network cannot use it.
@@ -82,6 +83,22 @@
 | --- | --- |
 | `--name <name>` | The name the Agent is shown as. The default is its hostname. |
 | `--port <port>` | The pairing port. The default is `7433`. If it is taken, such as by another account's `slingshot start`, the next free port is used, and the link line says which. |
+| `--boot` | Set up starting by itself without asking, such as after answering no. |
+| `--remove` | Stop Slingshot starting by itself, and stop the running service. |
+
+### Start By Itself
+
+* Answer yes when `slingshot start` asks, or run `slingshot start --boot` later.
+
+| Agent | What Slingshot Writes | When It Starts | Logs |
+| --- | --- | --- | --- |
+| Linux | `~/.config/systemd/user/slingshot.service`, a systemd user service, plus `loginctl enable-linger` | At boot, before anyone logs in | `journalctl --user -u slingshot.service` |
+| macOS | `~/Library/LaunchAgents/dev.slingshot.agent.plist`, a launchd agent | At login | `~/Library/Application Support/slingshot/agent/daemon.log` |
+
+* The service never makes a pairing code. To link another machine, run `slingshot start` at the Agent and press Enter. Ctrl C there leaves the service running.
+* The service keeps the PATH of the terminal it was set up from, so it finds the same tools.
+* If `enable-linger` is refused, Slingshot starts at login instead of at boot, and prints the `sudo` command that fixes it.
+* To stop it starting by itself, run `slingshot start --remove` on the Agent.
 
 ### Link The Client
 
@@ -374,4 +391,4 @@ slingshot menubar --remove
 3. This removes this machine's key and environment files from the Agent, and forgets the Agent.
 
 * Project copies on the Agent are kept.
-* To stop the Agent itself, press Ctrl C where `slingshot start` is running.
+* To stop the Agent itself, run `slingshot start --remove` on the Agent if it starts by itself. Otherwise press Ctrl C where `slingshot start` is running.

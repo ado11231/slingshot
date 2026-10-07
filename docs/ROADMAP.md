@@ -103,6 +103,7 @@
 17. Notifications show the Slingshot icon.
 18. The first `slingshot start` offers to start Slingshot by itself: a systemd user service with linger on Linux, and a launchd agent on macOS. `--boot` sets it up later, and `--remove` takes it away. A second `slingshot start` beside the service makes codes.
 19. An Agent with sleep turned off in systemd says so instead of warning that it may sleep.
+20. Leaving `slingshot attach` pulls the Agent's edits back. A conflict is a warning, and a dropped connection does not pull.
 
 * **Remaining:**
 
@@ -133,7 +134,7 @@
 * On Linux, a boot service with nobody logged in cannot block sleep. An Agent that can sleep may suspend after about 15 minutes idle. Issue #68 tracks a fix.
 * Starting by itself on a macOS Agent is untested.
 * If the Agent loses power or crashes, the first connection over iroh afterwards can wait up to about 20 seconds for the old connection to time out. A normal stop, or closing the terminal running `slingshot start`, no longer causes this.
-* Edits a coding agent makes on the Agent stay there until `slingshot sync --pull`.
+* Edits made in a session whose connection dropped stay on the Agent until `slingshot sync --pull`.
 * The tools step installs Docker only with `pacman`, `apt`, `dnf`, and `zypper`, and Git, Node, and Python only with the package managers it knows.
 * File watchers inside sessions, several Clients on one Agent account, and large Node and Python projects are untested. Each Client now links under a unique name, but two Clients have not been linked to one Agent at the same time yet.
 * `slingshot.toml` supports only `sync.exclude`. Other settings have no effect.
@@ -284,3 +285,11 @@
 4. `slingshot start --remove` asked, then removed the service. `slingshot start --boot` installed it again, printed `Slingshot started  0.5s` and `Reachable from other networks through iroh`, then the status screen.
 5. The service log printed `Sleep is turned off on this machine, so it stays reachable`.
 6. Not tested: the macOS launchd agent, and a Linux Agent where sleep is on.
+
+### Pull On Leaving Attach: October 6, 2026
+
+* The Mac ran the branch for #61 against archbox, driving `slingshot attach` through a pseudo terminal.
+
+1. In the session, a file was written on archbox. After Ctrl B then D, `Retrieved 1 change  0.3s` printed, and the file was on the Mac.
+2. The same file was then changed on both machines during a session. Leaving printed `Did not pull slingshot: These paths changed differently on this machine and archbox`. Each machine kept its own version.
+3. Not tested: a coding agent's edits, and a dropped connection.

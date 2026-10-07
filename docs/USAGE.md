@@ -205,6 +205,8 @@
 
 * **Every `attach` in a project copies your latest edits first**, including when you return to a session that is already running.
 * If that copy hits a conflict, Slingshot warns you and still opens the session.
+* **Leaving a project session brings the Agent's edits back**, such as a coding agent's work, as `slingshot sync --pull` does. A conflict is a warning, and nothing is overwritten.
+* Losing the connection does not bring edits back, because the session is still running and a file may be half written. Run `slingshot sync --pull` once the work is done.
 * The session keeps running when you disconnect or lose your network. Run `slingshot attach` again to return to it.
 * Each project has one session, and the home folder has one session.
 * Inside a session:

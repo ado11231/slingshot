@@ -6,6 +6,7 @@ use anyhow::{Context, bail, ensure};
 use slingshot_core::control::{Job, JobKind, JobState, SessionInfo};
 use slingshot_core::preflight;
 use slingshot_core::storage;
+use slingshot_core::tools;
 use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
@@ -264,9 +265,15 @@ fn session_terminal() -> &'static str {
 }
 
 /// Variables every new session gets. Programs inside draw box and emoji characters only
-/// with a UTF-8 locale, and use full color only when told the terminal supports it.
-fn session_environment() -> Vec<(String, String)> {
-    let mut variables = vec![("COLORTERM".to_string(), "truecolor".to_string())];
+/// with a UTF-8 locale, and use full color only when told the terminal supports it. PATH
+/// gets the per user folders as runs do, because tools such as Claude Code install there
+/// and a fresh account's shell startup files do not add them.
+fn session_environment(home: &Path) -> Vec<(String, String)> {
+    let path = std::env::var("PATH").unwrap_or_default();
+    let mut variables = vec![
+        ("COLORTERM".to_string(), "truecolor".to_string()),
+        ("PATH".to_string(), tools::with_user_folders(&path, home)),
+    ];
     let locale = ["LC_ALL", "LC_CTYPE", "LANG"]
         .iter()
         .find_map(|key| std::env::var(key).ok().filter(|value| !value.is_empty()));
@@ -396,7 +403,7 @@ pub fn session(root: &Path, agent: &str, project: Option<&str>) -> anyhow::Resul
             (home.clone(), Vec::new(), None, lock)
         }
     };
-    env.extend(session_environment());
+    env.extend(session_environment(&home));
     env.push(("PWD".to_string(), directory.display().to_string()));
     let config = prepare_server(root)?;
 
@@ -646,6 +653,21 @@ mod tests {
     fn the_bar_says_where_the_session_runs() {
         assert_eq!(session_label("archbox", "home"), "▶ archbox · home");
         assert_eq!(session_label("archbox", "app#1"), "▶ archbox · app1");
+    }
+
+    #[test]
+    fn sessions_find_tools_in_the_per_user_folders() {
+        let home = Path::new("/home/someone");
+        let variables = session_environment(home);
+        let path = variables
+            .iter()
+            .find(|(key, _)| key == "PATH")
+            .map(|(_, value)| value.as_str())
+            .unwrap();
+        assert!(
+            path.starts_with("/home/someone/.local/bin:/home/someone/.cargo/bin"),
+            "{path}"
+        );
     }
 
     #[test]

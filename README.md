@@ -50,6 +50,8 @@
    slingshot run cargo build
    ```
 
+   `sling` is the short name, so `sling run cargo build` works too.
+
 ### A Linux Agent
 
 1. Install what Slingshot needs. On Arch Linux:

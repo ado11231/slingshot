@@ -250,6 +250,11 @@ impl Control {
     }
 }
 
+/// The command that installs or updates Slingshot. It builds from GitHub until Slingshot is
+/// published to crates.io (#17).
+const INSTALL: &str =
+    "cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli";
+
 /// How to update after a protocol mismatch, naming the machine that runs the older build.
 fn update_advice(name: &str, mismatch: &control::Mismatch) -> String {
     let theirs = mismatch
@@ -259,11 +264,11 @@ fn update_advice(name: &str, mismatch: &control::Mismatch) -> String {
         .unwrap_or_default();
     match mismatch.other_is_older() {
         true => format!(
-            "{name} runs an older Slingshot{theirs} than this machine ({}). Update it there with: cargo install slingshot-cli, then restart slingshot start",
+            "{name} runs an older Slingshot{theirs} than this machine ({}). Update it there with: {INSTALL}, then restart slingshot start",
             control::RELEASE
         ),
         false => format!(
-            "This machine runs an older Slingshot ({}) than {name}{theirs}. Update it with: cargo install slingshot-cli",
+            "This machine runs an older Slingshot ({}) than {name}{theirs}. Update it with: {INSTALL}",
             control::RELEASE
         ),
     }
@@ -274,7 +279,7 @@ fn update_advice(name: &str, mismatch: &control::Mismatch) -> String {
 fn release_differs(name: &str, theirs: Option<&str>) -> Option<String> {
     let theirs = theirs.filter(|theirs| *theirs != control::RELEASE)?;
     Some(format!(
-        "{name} runs Slingshot {theirs} and this machine runs {}. Update the older one with: cargo install slingshot-cli",
+        "{name} runs Slingshot {theirs} and this machine runs {}. Update the older one with: {INSTALL}",
         control::RELEASE
     ))
 }
@@ -337,7 +342,7 @@ mod tests {
             "{advice}"
         );
         assert!(
-            advice.contains(" than archbox. Update it with: cargo install slingshot-cli"),
+            advice.contains(&format!(" than archbox. Update it with: {INSTALL}")),
             "{advice}"
         );
     }

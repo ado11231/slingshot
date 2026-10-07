@@ -257,13 +257,13 @@
 
 * **Message:** `archbox runs an older Slingshot 0.1.0 than this machine (0.2.0)`, or `This machine runs an older Slingshot (0.1.0) than archbox 0.2.0`
 * **Meaning:** The two machines run versions that cannot talk to each other. The message names the older one.
-* **Fix:** On the machine it names, run `cargo install slingshot-cli`. If that is the Agent, restart `slingshot start` there.
+* **Fix:** On the machine it names, run `cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli`. If that is the Agent, restart `slingshot start` there.
 
 ### Different Releases
 
 * **Message:** `! archbox runs Slingshot 0.1.0 and this machine runs 0.2.0`
 * **Meaning:** Both machines still work together, but the older one is missing fixes.
-* **Fix:** Run `cargo install slingshot-cli` on the older machine. If that is the Agent, restart `slingshot start` there.
+* **Fix:** Run `cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli` on the older machine. If that is the Agent, restart `slingshot start` there.
 
 ### Slingshot Missing On The Agent
 

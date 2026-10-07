@@ -49,7 +49,7 @@
 2. Install Slingshot on both machines:
 
    ```sh
-   cargo install slingshot-cli
+   cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli
    ```
 
 3. If `slingshot` is then not found, add Rust's folder to your PATH, then open a new terminal. Use `~/.zshrc` instead if your shell is zsh.
@@ -58,7 +58,8 @@
    echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
    ```
 
-* To update later, run `cargo install slingshot-cli` again on both machines. Both must run the same version.
+* Slingshot is built from GitHub until it is published to crates.io.
+* To update later, run the same command again on both machines. Both must run the same version. If the Agent starts Slingshot by itself, restart it there with `systemctl --user restart slingshot.service` on Linux, or by logging out and in on macOS.
 * This also installs `sling`, a short name for `slingshot`. `sling run cargo build` and `slingshot run cargo build` do the same thing. These docs always write `slingshot`.
 
 ## Set Up

@@ -112,7 +112,9 @@ pub async fn offer(name: &str) -> anyhow::Result<()> {
                     "It is built with Swift into ~/Applications/Slingshot.app and starts at login."
                 )
             );
-            if super::tools::confirm("Add it to your menu bar now?".to_string()).await? {
+            if slingshot_core::presentation::confirm("Add it to your menu bar now?".to_string())
+                .await?
+            {
                 show(name, None).await?;
             } else {
                 eprintln!(
@@ -216,7 +218,7 @@ async fn uninstall() -> anyhow::Result<i32> {
         crate::ssh::wants_terminal(),
         "Run slingshot menubar --remove in a terminal to confirm"
     );
-    if !super::tools::confirm("Remove the menu bar app?".to_string()).await? {
+    if !slingshot_core::presentation::confirm("Remove the menu bar app?".to_string()).await? {
         return Ok(0);
     }
 

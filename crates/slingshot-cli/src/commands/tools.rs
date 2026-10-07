@@ -5,7 +5,6 @@ use crate::client::{self, unexpected};
 use crate::project;
 use crate::route;
 use crate::ssh::{self, RemoteCommand};
-use anyhow::Context;
 use slingshot_core::config::{Agent, Config};
 use slingshot_core::control::{AgentTools, Request, Response};
 use slingshot_core::presentation::{self, Style, Tone, plural, row};
@@ -65,7 +64,7 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
         presentation::warning("Run slingshot tools in a terminal to install them");
         return Ok(());
     }
-    if !confirm(format!("Install them on {} now?", target.name)).await? {
+    if !presentation::confirm(format!("Install them on {} now?", target.name)).await? {
         eprintln!(
             "  {}",
             Style::stderr().dim("Run slingshot tools any time to do this later")
@@ -144,7 +143,7 @@ async fn offer_sign_in(
         presentation::warning("Run slingshot tools in a terminal to sign in");
         return Ok(());
     }
-    if !confirm(format!("Sign in on {} now?", target.name)).await? {
+    if !presentation::confirm(format!("Sign in on {} now?", target.name)).await? {
         eprintln!(
             "  {}",
             Style::stderr().dim("Run slingshot tools any time to do this later")
@@ -280,26 +279,6 @@ fn manual(manager: Option<&str>) -> String {
     }
 }
 
-/// Ask once, where Enter means yes and a closed input means no.
-pub async fn confirm(question: String) -> anyhow::Result<bool> {
-    eprint!("\n{question} [Y/n] ");
-    let answer = tokio::task::spawn_blocking(|| {
-        let mut line = String::new();
-        std::io::stdin()
-            .read_line(&mut line)
-            .map(|read| (read > 0).then_some(line))
-    })
-    .await
-    .context("Could not read the answer")?
-    .context("Could not read the answer")?;
-    eprintln!();
-    Ok(answer.is_some_and(|answer| accepted(&answer)))
-}
-
-fn accepted(answer: &str) -> bool {
-    matches!(answer.trim().to_lowercase().as_str(), "" | "y" | "yes")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,16 +299,6 @@ mod tests {
         );
         assert!(waiting_for_sign_in(&agent, &[Tool::Codex], &[Tool::Codex]).is_empty());
         assert!(waiting_for_sign_in(&agent, &[Tool::Git], &[]).is_empty());
-    }
-
-    #[test]
-    fn enter_and_yes_accept_and_anything_else_declines() {
-        assert!(accepted("\n"));
-        assert!(accepted("Y\n"));
-        assert!(accepted(" yes "));
-        assert!(!accepted("n\n"));
-        assert!(!accepted("no"));
-        assert!(!accepted("later"));
     }
 
     #[test]

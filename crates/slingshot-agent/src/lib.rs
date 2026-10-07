@@ -2,6 +2,7 @@
 //! everything after pairing. Work itself runs through SSH.
 
 pub mod awake;
+pub mod boot;
 pub mod clients;
 pub mod jobs;
 pub mod projects;
@@ -98,19 +99,52 @@ impl Mode {
 
 const REACHABLE: &str = "Reachable from other networks through iroh";
 
+/// What `slingshot start` does about starting at boot.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AtBoot {
+    /// Ask once, the first time `slingshot start` runs in a terminal.
+    Ask,
+    /// `--boot`: set it up without asking, even after an earlier no.
+    Install,
+    /// `--remove`: stop the service and delete it.
+    Remove,
+}
+
+/// How long a newly installed service has to answer on its socket, and to reach an iroh
+/// relay, so the start screen does not warn about a relay it is still reaching.
+const SERVICE_START: Duration = Duration::from_secs(15);
+
 /// Start the daemon: run the checks, show the linked Clients or a pairing code, then listen.
-/// When the daemon already runs for this account, show its status and pair beside it.
-pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
+/// When the daemon already runs for this account, show its status and pair beside it. The
+/// first start in a terminal offers to run the daemon as a boot service instead.
+pub async fn start(name: Option<String>, port: u16, at_boot: AtBoot) -> anyhow::Result<i32> {
+    if at_boot == AtBoot::Remove {
+        return boot::remove().await;
+    }
     if preflight::report(&preflight::start_checks()) {
         anyhow::bail!("Fix the reported errors, then run slingshot start again");
     }
 
     let root = service::root()?;
+    let installed = boot::installed()?;
     if service::running(&root)? {
+        if at_boot == AtBoot::Install && !installed {
+            anyhow::bail!(
+                "Slingshot is already running for this account. Stop the other slingshot start, then run slingshot start --boot again"
+            );
+        }
         return beside(name, port, root).await;
     }
 
     let name = agent_name(name);
+    if installed {
+        presentation::warning(format!(
+            "Slingshot is set to start by itself but is not running. Its file is {}. Run slingshot start --remove, then slingshot start --boot",
+            presentation::home_path(&boot::file()?)
+        ));
+    } else if wants_boot(&root, &name, at_boot).await? {
+        return beside(Some(name), port, root).await;
+    }
     let online = Arc::new(AtomicBool::new(false));
     let _service = service::start(name.clone(), Arc::clone(&online))?;
     let identity = slingshot_core::tunnel::identity(&root)?;
@@ -173,13 +207,76 @@ pub async fn daemon(name: Option<String>) -> anyhow::Result<i32> {
     Ok(0)
 }
 
+/// Offer the boot service, install it on a yes, and wait until it answers. A no is saved, so
+/// later starts go straight to the start screen.
+async fn wants_boot(root: &std::path::Path, name: &str, at_boot: AtBoot) -> anyhow::Result<bool> {
+    let ask = at_boot == AtBoot::Ask;
+    if ask && (!interactive() || boot::declined(root)) {
+        return Ok(false);
+    }
+    let user = whoami().context("Could not work out which user is running Slingshot")?;
+    let plan = boot::plan(root, name, &user)?;
+    if ask {
+        eprintln!(
+            "\n  Slingshot can start {} by itself, so linked Clients reach this machine without anyone here:",
+            plan.when
+        );
+        boot::show(&plan);
+        if !presentation::confirm(format!("Start Slingshot {}?", plan.when)).await? {
+            boot::decline(root)?;
+            presentation::detail("Later", "slingshot start --boot");
+            return Ok(false);
+        }
+    } else {
+        boot::show(&plan);
+    }
+    boot::install(&plan)?;
+
+    let step = step::start("Starting Slingshot");
+    let started = Instant::now();
+    let mut answered = false;
+    loop {
+        match service::status(root).await {
+            Ok(status) if status.online => break,
+            Ok(_) => answered = true,
+            Err(_) => {}
+        }
+        if started.elapsed() > SERVICE_START {
+            if answered {
+                break;
+            }
+            step.clear();
+            anyhow::bail!(
+                "Slingshot was set up to start {} but did not start. Its file is {}",
+                plan.when,
+                presentation::home_path(&plan.file)
+            );
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+    step.done("Slingshot started");
+    Ok(true)
+}
+
+/// Whether someone is at a terminal to answer a question.
+fn interactive() -> bool {
+    use std::io::IsTerminal;
+
+    std::io::stdin().is_terminal() && std::io::stderr().is_terminal()
+}
+
 fn agent_name(name: Option<String>) -> String {
     name.or_else(sysinfo::System::host_name)
         .unwrap_or_else(|| "agent".to_string())
 }
 
-/// Hold the awake lock for as long as the result lives, and say whether it worked.
+/// Hold the awake lock for as long as the result lives, and say whether it worked. A machine
+/// that cannot sleep needs no lock.
 fn keep_awake() -> Option<awake::Awake> {
+    if awake::sleep_off() {
+        presentation::success("Sleep is turned off on this machine, so it stays reachable");
+        return None;
+    }
     let held = awake::hold();
     match held {
         Some(_) => presentation::success("Keeping this machine awake while Slingshot runs"),

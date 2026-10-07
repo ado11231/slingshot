@@ -18,6 +18,22 @@ impl Drop for Awake {
     }
 }
 
+/// Whether sleep is turned off in systemd, by masking either target an idle suspend goes
+/// through. Then the machine cannot sleep, and there is nothing to hold or warn about.
+pub fn sleep_off() -> bool {
+    ["sleep.target", "suspend.target"].iter().any(|target| {
+        Command::new("systemctl")
+            .args(["is-enabled", target])
+            .output()
+            .is_ok_and(|output| masked(&output.stdout))
+    })
+}
+
+/// `systemctl is-enabled` says `masked`, or `masked-runtime` until the next boot.
+fn masked(stdout: &[u8]) -> bool {
+    String::from_utf8_lossy(stdout).trim().starts_with("masked")
+}
+
 /// A tool that keeps the system awake. `lifeline` means it runs a command that must read
 /// from this process to stay alive, which is how it learns that this process has ended.
 struct Tool {
@@ -85,4 +101,18 @@ fn start(mut tool: Tool) -> Option<Awake> {
         child,
         _lifeline: lifeline,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_masked_target_means_sleep_is_off() {
+        assert!(masked(b"masked\n"));
+        assert!(masked(b"masked-runtime\n"));
+        assert!(!masked(b"static\n"));
+        assert!(!masked(b"enabled\n"));
+        assert!(!masked(b""));
+    }
 }

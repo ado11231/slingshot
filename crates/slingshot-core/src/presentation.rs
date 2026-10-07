@@ -1,5 +1,6 @@
 //! Shared formatting for Slingshot output. Stream detection keeps redirected output plain.
 
+use anyhow::Context;
 use std::io::{IsTerminal, stderr, stdout};
 use std::path::Path;
 use std::sync::OnceLock;
@@ -165,9 +166,39 @@ pub fn capacity(mib: u64) -> String {
     }
 }
 
+/// Ask once, where Enter means yes and a closed input means no.
+pub async fn confirm(question: String) -> anyhow::Result<bool> {
+    eprint!("\n{question} [Y/n] ");
+    let answer = tokio::task::spawn_blocking(|| {
+        let mut line = String::new();
+        std::io::stdin()
+            .read_line(&mut line)
+            .map(|read| (read > 0).then_some(line))
+    })
+    .await
+    .context("Could not read the answer")?
+    .context("Could not read the answer")?;
+    eprintln!();
+    Ok(answer.is_some_and(|answer| accepted(&answer)))
+}
+
+fn accepted(answer: &str) -> bool {
+    matches!(answer.trim().to_lowercase().as_str(), "" | "y" | "yes")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn enter_and_yes_accept_and_anything_else_declines() {
+        assert!(accepted("\n"));
+        assert!(accepted("Y\n"));
+        assert!(accepted(" yes "));
+        assert!(!accepted("n\n"));
+        assert!(!accepted("no"));
+        assert!(!accepted("later"));
+    }
 
     #[test]
     fn capacity_preserves_small_values_and_fractional_gib() {

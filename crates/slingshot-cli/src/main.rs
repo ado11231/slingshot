@@ -80,6 +80,14 @@ enum Commands {
         /// The pairing port. When it is taken, the next free one is used.
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
+
+        /// Start Slingshot by itself at boot, even after answering no before.
+        #[arg(long, conflicts_with = "remove")]
+        boot: bool,
+
+        /// Stop Slingshot starting by itself at boot, and stop the running service.
+        #[arg(long)]
+        remove: bool,
     },
 
     #[command(about = "Client: link to an Agent with the code slingshot start printed")]
@@ -226,7 +234,19 @@ async fn main() {
         Commands::InternalTunnel { key } => tunnel::run(key).await,
         Commands::InternalWatch => watch::run(cli.agent).await,
         Commands::InternalDaemon { name } => slingshot_agent::daemon(name).await,
-        Commands::Start { name, port } => slingshot_agent::start(name, port).await,
+        Commands::Start {
+            name,
+            port,
+            boot,
+            remove,
+        } => {
+            let at_boot = match (boot, remove) {
+                (true, _) => slingshot_agent::AtBoot::Install,
+                (_, true) => slingshot_agent::AtBoot::Remove,
+                _ => slingshot_agent::AtBoot::Ask,
+            };
+            slingshot_agent::start(name, port, at_boot).await
+        }
         Commands::Link { code, name } => commands::link::link(code, name).await,
         Commands::Unlink => commands::unlink::unlink(cli.agent).await,
         Commands::Tools => commands::tools::tools(cli.agent).await,
@@ -322,6 +342,20 @@ mod tests {
         };
         assert_eq!(cmd, ["cargo", "--color", "always", "--release"]);
         assert_eq!(cli.color, "never");
+    }
+
+    #[test]
+    fn start_sets_up_or_removes_the_boot_service_but_not_both() {
+        let cli = Cli::try_parse_from(["slingshot", "start", "--boot"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Commands::Start {
+                boot: true,
+                remove: false,
+                ..
+            }
+        ));
+        assert!(Cli::try_parse_from(["slingshot", "start", "--boot", "--remove"]).is_err());
     }
 
     #[test]

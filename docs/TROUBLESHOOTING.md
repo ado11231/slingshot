@@ -35,6 +35,15 @@
 * **Meaning:** `rsync` copies files, and `tmux` keeps sessions running. The Agent needs both.
 * **Fix:** Run the install command Slingshot printed, then run `slingshot start` again.
 
+### Docker Not Usable
+
+* **Message:** `Docker is installed, but this account cannot use it`
+* **Meaning:** This account is not in the `docker` group, so every Docker command fails with "permission denied". It is a warning, so Slingshot still starts.
+* **Fix:**
+
+1. Run the command Slingshot printed, such as `sudo usermod -aG docker ado`.
+2. Restart the machine. Sessions and Slingshot's service keep the groups they started with, so only a restart gives them the new one.
+
 ### Already Running
 
 * **Message:** `Another slingshot start is already running for this account`
@@ -221,8 +230,8 @@
 ### Docker Permission Denied
 
 * **Message:** `permission denied while trying to connect to the Docker daemon socket`
-* **Meaning:** You were added to the `docker` group, but open sessions started before that.
-* **Fix:** End open sessions with `exit`, then run `slingshot attach` again.
+* **Meaning:** This account is not in the `docker` group, or was added after sessions and Slingshot's service started. They keep the groups they started with.
+* **Fix:** Add the account with `sudo usermod -aG docker <user>` if `slingshot start` warned about it, then restart the machine. `slingshot run` sees the change at once, but sessions only after the restart.
 
 ## Reaching The Agent
 

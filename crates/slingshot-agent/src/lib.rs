@@ -110,8 +110,9 @@ pub enum AtBoot {
     Remove,
 }
 
-/// How long a newly installed service has to answer on its socket.
-const SERVICE_START: Duration = Duration::from_secs(10);
+/// How long a newly installed service has to answer on its socket, and to reach an iroh
+/// relay, so the start screen does not warn about a relay it is still reaching.
+const SERVICE_START: Duration = Duration::from_secs(15);
 
 /// Start the daemon: run the checks, show the linked Clients or a pairing code, then listen.
 /// When the daemon already runs for this account, show its status and pair beside it. The
@@ -231,10 +232,19 @@ async fn wants_boot(root: &std::path::Path, name: &str, at_boot: AtBoot) -> anyh
     }
     boot::install(&plan)?;
 
-    let step = step::start("Waiting for Slingshot to start");
+    let step = step::start("Starting Slingshot");
     let started = Instant::now();
-    while service::status(root).await.is_err() {
+    let mut answered = false;
+    loop {
+        match service::status(root).await {
+            Ok(status) if status.online => break,
+            Ok(_) => answered = true,
+            Err(_) => {}
+        }
         if started.elapsed() > SERVICE_START {
+            if answered {
+                break;
+            }
             step.clear();
             anyhow::bail!(
                 "Slingshot was set up to start {} but did not start. Its file is {}",
@@ -244,7 +254,7 @@ async fn wants_boot(root: &std::path::Path, name: &str, at_boot: AtBoot) -> anyh
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    step.clear();
+    step.done("Slingshot started");
     Ok(true)
 }
 

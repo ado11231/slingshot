@@ -1,4 +1,6 @@
-<h1 align="center">slingshot</h1>
+<p align="center"><img src="https://raw.githubusercontent.com/ado11231/slingshot/master/docs/media/slingshot.png" alt="Slingshot logo, a pixel art slingshot" width="96"></p>
+
+<h3 align="center">slingshot</h3>
 
 <p align="center">
   <a href="https://github.com/ado11231/slingshot/actions/workflows/ci.yml"><img src="https://github.com/ado11231/slingshot/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -6,7 +8,7 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey" alt="macOS and Linux">
 </p>
 
-<p align="center">Use the CPU, RAM, and GPU of another computer from your own. Run terminal processes securely, with local models coming next.</p>
+<p align="center">use the CPU, RAM, and GPU of another computer from your own. Run terminal processes securely, with local models coming next.</p>
 
 <p align="center"><img src="https://raw.githubusercontent.com/ado11231/slingshot/master/docs/media/demo.gif" alt="Starting Slingshot on the powerful machine, linking the laptop, and opening a session" width="830"></p>
 

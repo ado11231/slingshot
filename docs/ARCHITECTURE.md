@@ -404,7 +404,7 @@ slingshot/
 
 | File | Purpose | Uses | Used By |
 | --- | --- | --- | --- |
-| `lib.rs` | `slingshot start`: setup checks, the start screen, pairing, and starting the other parts. | `awake`, `clients`, `service`, `tunnel` | Client `main` |
+| `lib.rs` | `slingshot start`: setup checks, the start screen, pairing, and starting the other parts. `slingshot internal-daemon`: the same parts without pairing, for a boot service. | `awake`, `clients`, `service`, `tunnel` | Client `main` |
 | `service.rs` | The private control socket, the `internal-control` helper that reaches it, and the tools probe run in the login shell. | `clients`, `jobs`, `projects` | `lib`, `runner`, Client `main` |
 | `projects.rs` | Project storage: source copies, sync locks, build output, and environment files. | `jobs` | `service`, `jobs`, `runner` |
 | `jobs.rs` | Job records, `tmux` sessions, and safe stopping. | `projects` | `service`, `projects`, `runner` |

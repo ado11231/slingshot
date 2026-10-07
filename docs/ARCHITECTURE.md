@@ -151,6 +151,9 @@ flowchart TD
 
 * Someone watching the network learns nothing they can use. A wrong guess only counts if it is sent to the Agent, which allows 3.
 * Pressing Enter where `slingshot start` runs replaces the code, for linking another machine or after a code was burned.
+* An Agent with linked Clients starts without a code, and makes one only when Enter is pressed.
+* A second `slingshot start` on the same account runs pairing in its own process, beside the daemon already running. It learns the daemon's name and release with the `Status` control request.
+* Pairing only writes `authorized_keys` and the list of iroh Clients, and the daemon reads both fresh. So the code stays in the process that printed it, and never reaches the daemon.
 * `slingshot unlink` reverses pairing. It removes the key, deletes this Client's environment files, and forgets the Agent.
 
 ### Control
@@ -401,12 +404,12 @@ slingshot/
 
 | File | Purpose | Uses | Used By |
 | --- | --- | --- | --- |
-| `lib.rs` | `slingshot start`: setup checks, pairing, and starting the other parts. | `awake`, `clients`, `service`, `tunnel` | Client `main` |
+| `lib.rs` | `slingshot start`: setup checks, the start screen, pairing, and starting the other parts. | `awake`, `clients`, `service`, `tunnel` | Client `main` |
 | `service.rs` | The private control socket, the `internal-control` helper that reaches it, and the tools probe run in the login shell. | `clients`, `jobs`, `projects` | `lib`, `runner`, Client `main` |
 | `projects.rs` | Project storage: source copies, sync locks, build output, and environment files. | `jobs` | `service`, `jobs`, `runner` |
 | `jobs.rs` | Job records, `tmux` sessions, and safe stopping. | `projects` | `service`, `projects`, `runner` |
 | `runner.rs` | `slingshot internal-run`: runs one command in the project copy with a real terminal. | `jobs`, `projects`, `service` | Client `main` |
-| `clients.rs` | The Clients allowed to connect over iroh. | none | `lib`, `service`, `tunnel` |
+| `clients.rs` | The Clients allowed to connect over iroh, and their names for the start screen. | none | `lib`, `service`, `tunnel` |
 | `tunnel.rs` | The iroh endpoint, which passes paired Clients to the local ssh server. | `clients` | `lib` |
 | `awake.rs` | Keeps the Agent awake while `slingshot start` runs. | none | `lib` |
 

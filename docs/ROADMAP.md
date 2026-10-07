@@ -258,3 +258,14 @@
 1. Against archbox, a normal run printed no version warning. A local build with the protocol raised to 10 printed `archbox runs an older Slingshot than this machine (0.1.0). Update it there with: cargo install slingshot-cli, then restart slingshot start`.
 2. On the Mac, two `slingshot start` processes ran under separate homes. The second moved to port 7434 and said so.
 3. On archbox, an admin account, the tools check still found every tool after the `sudo` check was added.
+
+### Start Screen: October 6, 2026
+
+* A build of control protocol 11 ran on archbox in a temporary home folder, beside the installed `slingshot start` of protocol 10.
+
+1. Beside the protocol 10 `slingshot start`, the new build refused with `A different version of Slingshot is already running for this account`.
+2. With no linked Clients, the first `slingshot start` printed a code as before. A second one on the same account printed its own code on port 7435, and Ctrl C there printed `Slingshot keeps running on archbox`. The first one kept running until stopped.
+3. With a copy of archbox's list of linked Clients, both showed `Linked  ados-MacBook-Air.local-29eded` and `Press Enter for a code to link another machine` instead of a code.
+4. Then both machines ran the branch, with archbox in two real terminals. The first `slingshot start` showed the linked Mac and no code. The second showed the same screen, and pressing Enter there printed a code for port 7434.
+5. The Mac's `slingshot health` and menu bar reached archbox on protocol 11.
+6. Not tested: linking a Client with a code made beside the daemon, because the Mac's link was left as it is.

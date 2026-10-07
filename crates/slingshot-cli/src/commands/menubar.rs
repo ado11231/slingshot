@@ -7,39 +7,43 @@
 #[cfg(target_os = "macos")]
 const BUNDLE_ID: &str = "dev.slingshot.menubar";
 
-/// The app's source, built into this program so `slingshot menubar` can build the app even
-/// after the Slingshot source folder is gone.
+/// The app's source and logo, built into this program so `slingshot menubar` can build the
+/// app even after the Slingshot source folder is gone.
 #[cfg(target_os = "macos")]
-const SOURCES: &[(&str, &str)] = &[
-    ("Package.swift", include_str!("../../menubar/Package.swift")),
-    ("Info.plist", include_str!("../../menubar/Info.plist")),
+const SOURCES: &[(&str, &[u8])] = &[
+    (
+        "Package.swift",
+        include_bytes!("../../menubar/Package.swift"),
+    ),
+    ("Info.plist", include_bytes!("../../menubar/Info.plist")),
+    ("Logo.png", include_bytes!("../../menubar/Logo.png")),
     (
         "Sources/App.swift",
-        include_str!("../../menubar/Sources/App.swift"),
+        include_bytes!("../../menubar/Sources/App.swift"),
     ),
     (
         "Sources/Bars.swift",
-        include_str!("../../menubar/Sources/Bars.swift"),
+        include_bytes!("../../menubar/Sources/Bars.swift"),
     ),
     (
         "Sources/LoginItem.swift",
-        include_str!("../../menubar/Sources/LoginItem.swift"),
+        include_bytes!("../../menubar/Sources/LoginItem.swift"),
     ),
     (
         "Sources/Model.swift",
-        include_str!("../../menubar/Sources/Model.swift"),
+        include_bytes!("../../menubar/Sources/Model.swift"),
     ),
     (
         "Sources/Notifier.swift",
-        include_str!("../../menubar/Sources/Notifier.swift"),
+        include_bytes!("../../menubar/Sources/Notifier.swift"),
     ),
     (
         "Sources/PopoverView.swift",
-        include_str!("../../menubar/Sources/PopoverView.swift"),
+        include_bytes!("../../menubar/Sources/PopoverView.swift"),
     ),
     (
         "Sources/Watcher.swift",
-        include_str!("../../menubar/Sources/Watcher.swift"),
+        include_bytes!("../../menubar/Sources/Watcher.swift"),
     ),
 ];
 
@@ -259,12 +263,12 @@ fn up_to_date(app: &std::path::Path) -> bool {
 }
 
 #[cfg(target_os = "macos")]
-fn stamp_of(sources: &[(&str, &str)]) -> String {
+fn stamp_of(sources: &[(&str, &[u8])]) -> String {
     let mut all = Vec::new();
     for (name, contents) in sources {
         all.extend_from_slice(name.as_bytes());
         all.push(0);
-        all.extend_from_slice(contents.as_bytes());
+        all.extend_from_slice(contents);
         all.push(0);
     }
     slingshot_core::source::digest(&all)
@@ -357,7 +361,7 @@ fn swift(args: &[&str]) -> anyhow::Result<String> {
     )
 }
 
-/// Put the built program, its Info.plist, and the source stamp into an app bundle, then
+/// Put the built program, its Info.plist, its logo, and the source stamp into an app bundle, then
 /// sign it for this machine only, which is all macOS needs to run a locally built app.
 #[cfg(target_os = "macos")]
 fn assemble(
@@ -380,6 +384,10 @@ fn assemble(
     )
     .context("Swift finished but the app program was not where it said")?;
     fs::copy(package.join("Info.plist"), contents.join("Info.plist"))?;
+    fs::copy(
+        package.join("Logo.png"),
+        contents.join("Resources").join("Logo.png"),
+    )?;
     fs::write(app.join(STAMP), stamp_of(SOURCES))?;
 
     let signed = std::process::Command::new("codesign")
@@ -467,10 +475,10 @@ mod tests {
 
     #[test]
     fn any_change_to_the_source_changes_the_stamp() {
-        let before = stamp_of(&[("Sources/App.swift", "a")]);
+        let before = stamp_of(&[("Sources/App.swift", b"a")]);
 
-        assert_eq!(before, stamp_of(&[("Sources/App.swift", "a")]));
-        assert_ne!(before, stamp_of(&[("Sources/App.swift", "b")]));
-        assert_ne!(before, stamp_of(&[("Sources/Other.swift", "a")]));
+        assert_eq!(before, stamp_of(&[("Sources/App.swift", b"a")]));
+        assert_ne!(before, stamp_of(&[("Sources/App.swift", b"b")]));
+        assert_ne!(before, stamp_of(&[("Sources/Other.swift", b"a")]));
     }
 }

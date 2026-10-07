@@ -38,7 +38,7 @@ let vramColor = Color.pink
 
 /// Every value beside a bar uses this, so all the numbers match. Digits keep their natural
 /// widths, because fixed width digits leave wide gaps around a 1.
-let valueFont = Font.system(size: 12, weight: .bold, design: .rounded)
+let valueFont = Font.system(size: 11, weight: .semibold, design: .rounded)
 
 /// Healthy values stay plain, as on the command line. Color is for what needs attention.
 func valueColor(_ level: Level?) -> Color {
@@ -273,7 +273,7 @@ struct MetricSection<Content: View>: View {
                 HStack(spacing: 3) {
                     if let valueIcon {
                         Image(systemName: valueIcon)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 9, weight: .semibold))
                     }
                     Text(value)
                         .font(valueFont)

@@ -9,8 +9,11 @@ final class Watcher {
     private(set) var lastSeen: Date?
     /// True from Try again until the next answer, so the button can show it is working.
     private(set) var retrying = false
-    /// Why there is nothing to show, such as a missing program or a helper that keeps failing.
+    /// Why there is nothing to show, such as a helper that keeps failing.
     private(set) var problem: String?
+    /// Set when the app cannot find the slingshot program: the saved path that is gone, or an
+    /// empty string when no path was ever saved. Trying again cannot fix this.
+    private(set) var missingProgram: String?
 
     var onNotice: ((Notice) -> Void)?
 
@@ -27,12 +30,12 @@ final class Watcher {
     /// Start the helper, or restart it when `slingshot menubar` saved a new program or Agent.
     func start() {
         let defaults = UserDefaults.standard
-        guard let program = defaults.string(forKey: "slingshotPath"),
-              FileManager.default.isExecutableFile(atPath: program)
-        else {
-            problem = "Run slingshot menubar once from a terminal so the app can find Slingshot."
+        let saved = defaults.string(forKey: "slingshotPath")
+        guard let program = saved, FileManager.default.isExecutableFile(atPath: program) else {
+            missingProgram = saved ?? ""
             return
         }
+        missingProgram = nil
         let agent = defaults.string(forKey: "agent")
         if process?.isRunning == true, started?.program == program, started?.agent == agent {
             return
@@ -108,7 +111,7 @@ final class Watcher {
             case .status(let status): apply(status)
             case .notice(let notice): onNotice?(notice)
             case .unsupported(let version):
-                problem = "Slingshot speaks format \(version), this app speaks \(supportedVersion). Update the app with: slingshot menubar"
+                problem = "Slingshot speaks format \(version), and this app speaks format \(supportedVersion)."
             }
         }
     }

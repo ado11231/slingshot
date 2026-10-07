@@ -166,6 +166,12 @@ async fn show(name: &str, agent: Option<&str>) -> anyhow::Result<std::path::Path
     let program = std::env::current_exe()
         .and_then(|path| path.canonicalize())
         .context("Could not find this program's own path")?;
+    if cargo_build(&program) {
+        presentation::warning(format!(
+            "The app will run {}, which cargo clean deletes. Install Slingshot with cargo install --path crates/slingshot-cli, then run slingshot menubar again",
+            home_path(&program)
+        ));
+    }
 
     defaults(&[
         "write",
@@ -193,6 +199,15 @@ async fn show(name: &str, agent: Option<&str>) -> anyhow::Result<std::path::Path
     );
     presentation::success(format!("{name} is in your menu bar"));
     Ok(app)
+}
+
+/// A program inside a cargo `target` folder, which `cargo clean` or the next checkout removes.
+#[cfg(target_os = "macos")]
+fn cargo_build(program: &std::path::Path) -> bool {
+    let folders: Vec<_> = program.components().map(|part| part.as_os_str()).collect();
+    folders
+        .windows(2)
+        .any(|pair| pair[0] == "target" && (pair[1] == "debug" || pair[1] == "release"))
 }
 
 /// Take the app out of login items, then delete it, its build folder, and its settings.
@@ -477,6 +492,19 @@ mod tests {
         assert!(
             matches!(offer_for(false, true, false), Offer::Later(how) if how.contains("slingshot menubar"))
         );
+    }
+
+    #[test]
+    fn a_cargo_build_is_told_apart_from_an_installed_program() {
+        use std::path::Path;
+        assert!(cargo_build(Path::new(
+            "/src/slingshot/target/debug/slingshot"
+        )));
+        assert!(cargo_build(Path::new(
+            "/src/slingshot/target/release/slingshot"
+        )));
+        assert!(!cargo_build(Path::new("/home/me/.cargo/bin/slingshot")));
+        assert!(!cargo_build(Path::new("/opt/target/slingshot")));
     }
 
     #[test]

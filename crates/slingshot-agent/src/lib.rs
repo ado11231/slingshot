@@ -270,8 +270,13 @@ fn agent_name(name: Option<String>) -> String {
         .unwrap_or_else(|| "agent".to_string())
 }
 
-/// Hold the awake lock for as long as the result lives, and say whether it worked.
+/// Hold the awake lock for as long as the result lives, and say whether it worked. A machine
+/// that cannot sleep needs no lock.
 fn keep_awake() -> Option<awake::Awake> {
+    if awake::sleep_off() {
+        presentation::success("Sleep is turned off on this machine, so it stays reachable");
+        return None;
+    }
     let held = awake::hold();
     match held {
         Some(_) => presentation::success("Keeping this machine awake while Slingshot runs"),

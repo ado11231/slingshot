@@ -381,7 +381,7 @@ slingshot menubar --remove
 | --- | --- |
 | Rust | `target` is written to Agent storage. |
 | Node | `node_modules` links to Agent storage. |
-| Python | `.venv` links to Agent storage, and the pip cache is kept there too. |
+| Python | `.venv` stays in the Agent's copy and is never copied back. The pip cache is kept in Agent storage. |
 
 ## Remove Slingshot
 

@@ -83,7 +83,7 @@
 | --- | --- |
 | Sharing RAM over the network | A network is about a hundred thousand times slower than RAM. |
 | Remote desktop or screen streaming | Sunshine and Moonlight already do this. |
-| Copying or mounting build output | `target/`, `node_modules/`, virtual environments, and caches stay in separate Agent storage. This is the most important performance rule. |
+| Copying or mounting build output | `target/`, `node_modules/`, and caches stay in separate Agent storage. A Python `.venv` stays in the Agent's copy, because `venv` refuses a link, and is never scanned or copied. This is the most important performance rule. |
 | Treating environment files as source | `.env`, `.env.*`, `*.env`, and `.envrc` never enter a sync, and their contents never appear in arguments. |
 | Assuming a package manager | The main test Agent runs Arch Linux, which uses `pacman`, not `apt`. Detect and instruct. |
 | Fixed system paths in shared code | Never write `/Users/...` or `/home/...`. Use the `directories` crate. |

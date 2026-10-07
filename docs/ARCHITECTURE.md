@@ -256,8 +256,9 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | Rust | `Cargo.toml` | `target` | `CARGO_TARGET_DIR` points to Agent storage. |
 | Node | `package.json` | `node_modules` | A link points to Agent storage. |
-| Python | `pyproject.toml` or `requirements.txt` | `.venv` and the pip cache | A link, and `PIP_CACHE_DIR`. |
+| Python | `pyproject.toml` or `requirements.txt` | The pip cache | `PIP_CACHE_DIR` points to Agent storage. |
 
+* A Python `.venv` stays inside the source copy, because `python3 -m venv` refuses a link. The scan skips it, so it is never hashed, backed up, or copied.
 * Recognition lives in `slingshot-core/src/stack.rs`. The rules live in `slingshot-core/src/artifacts.rs`.
 
 ## Runs And Sessions
@@ -348,7 +349,7 @@ flowchart LR
 jobs/                  one record per run or session
 projects/<project id>/
 ├── source/            the source copy
-├── artifacts/         build output such as target, node_modules, and .venv
+├── artifacts/         build output such as target, node_modules, and the pip cache
 ├── environment/       environment files added with slingshot env
 └── state/             the baseline, staging, and backups
 ```

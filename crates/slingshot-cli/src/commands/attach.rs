@@ -62,7 +62,40 @@ pub async fn attach(
         "Lost connection to {}. The session keeps running there. Run slingshot attach again to return to it",
         target.name
     );
-    super::run::interact(target, &remote, lost).await
+    let code = super::run::interact(target, &remote, lost).await?;
+    if let Some(local) = local.as_ref().filter(|_| pulls_after(code))
+        && let Err(error) = pull_edits(target, local).await
+    {
+        presentation::warning(format!("Did not pull {}: {error:#}", local.name));
+    }
+    Ok(code)
+}
+
+/// Only a clean detach, or the session ending, pulls. After a dropped connection the session
+/// still runs, and a coding agent there may be halfway through writing a file.
+fn pulls_after(code: i32) -> bool {
+    code == 0
+}
+
+/// Bring back what changed on the Agent during the session, such as a coding agent's edits,
+/// as `slingshot sync --pull` does. A failure is a warning, because the session itself ended
+/// well and the edits wait safely on the Agent.
+async fn pull_edits(target: &Agent, local: &Local) -> anyhow::Result<()> {
+    let mut opened = transfer::open(target, local).await?;
+    let step = transfer::syncing(local);
+    let result = transfer::pull(&mut opened, target, local, &step).await;
+    opened.control.close().await;
+    match result {
+        Ok(outcome) => {
+            transfer::finish(step, &outcome, Direction::Pull);
+            super::sync::report_kept(outcome.kept, &target.name, Direction::Pull);
+            Ok(())
+        }
+        Err(error) => {
+            step.clear();
+            Err(error)
+        }
+    }
 }
 
 /// Sync first, so the session always starts from the latest edits, even when returning to
@@ -117,4 +150,16 @@ async fn open_session(
         super::run::show_warnings(control.call(Request::Warnings).await);
     }
     Ok(session)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_clean_detach_pulls() {
+        assert!(pulls_after(0));
+        assert!(!pulls_after(255));
+        assert!(!pulls_after(1));
+    }
 }

@@ -327,6 +327,12 @@
 * **Meaning:** The session is still running on the Agent.
 * **Fix:** Run `slingshot attach` to return to it.
 
+### Edits Not Pulled After Leaving
+
+* **Message:** `! Did not pull app: These paths changed differently on this machine and archbox`, where app is your project
+* **Meaning:** You left the session, and the same files changed in both places. Nothing was overwritten. Both versions are kept.
+* **Fix:** Follow [Conflict](#conflict), then run `slingshot sync --pull`.
+
 ### Low Memory Or Disk
 
 * **Message:** `RAM is 92% used` or `Only 1.2 GiB free on the Agent workspace disk`

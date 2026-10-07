@@ -299,10 +299,11 @@ fn prepare_server(root: &Path) -> anyhow::Result<PathBuf> {
     Ok(config)
 }
 
-/// Where a session starts: `~/Slingshot/<project>`, a link to the project copy, so the
-/// prompt inside shows the project rather than Slingshot's storage path. An existing file,
-/// or a link to another copy, is never replaced; the short ID is added instead.
-fn project_link(home: &Path, name: &str, id: &str, target: &Path) -> anyhow::Result<PathBuf> {
+/// Where a session or run starts: `~/Slingshot/<project>`, a link to the project copy, so
+/// the prompt shows the project rather than Slingshot's storage path, and Docker Compose
+/// names the project after it instead of after the copy's `source` folder. An existing
+/// file, or a link to another copy, is never replaced; the short ID is added instead.
+pub fn project_link(home: &Path, name: &str, id: &str, target: &Path) -> anyhow::Result<PathBuf> {
     let folder = home.join("Slingshot");
     fs::create_dir_all(&folder)?;
     let clean: String = name

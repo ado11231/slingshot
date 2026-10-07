@@ -6,17 +6,6 @@ use std::path::Path;
 use std::process::Command;
 use sysinfo::{Disks, MINIMUM_CPU_UPDATE_INTERVAL, System};
 
-/// Programs worth knowing about when deciding what the Agent can do for you.
-const INTERESTING_TOOLS: &[&str] = &[
-    "docker",
-    "podman",
-    "rsync",
-    "git",
-    "tmux",
-    "ollama",
-    "nvidia-smi",
-];
-
 const BYTES_PER_MIB: u64 = 1024 * 1024;
 
 /// Static facts about the Agent. `name` is passed in rather than read from the machine,
@@ -41,11 +30,6 @@ pub fn specs(name: &str) -> Specs {
         memory_mib: sys.total_memory() / BYTES_PER_MIB,
         disk_total_mib: root_disk().map(|(total, _)| total).unwrap_or(0) / BYTES_PER_MIB,
         gpus: gpu_specs(),
-        tools: INTERESTING_TOOLS
-            .iter()
-            .filter(|tool| is_installed(tool))
-            .map(|tool| tool.to_string())
-            .collect(),
     }
 }
 

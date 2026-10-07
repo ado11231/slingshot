@@ -333,7 +333,6 @@ mod tests {
             cores: 16,
             memory_mib: 65536,
             disk_total_mib: 1048576,
-            tools: vec![],
             gpus: vec![],
         };
         let output = render("archbox", Some(&specs), &sample(), Style::new(false));

@@ -167,7 +167,18 @@ struct PopoverView: View {
 
     @ViewBuilder
     private var offline: some View {
-        if let problem = watcher.problem {
+        if let missing = watcher.missingProgram {
+            ProblemView(
+                title: "Can't find the slingshot program",
+                detail: missing.isEmpty
+                    ? "The app has not been told where slingshot is yet."
+                    : "It was at \(missing), which no longer exists.",
+                fix: Fix(machine: "client", command: "slingshot menubar"),
+                agent: nil,
+                retrying: false,
+                retry: nil
+            )
+        } else if let problem = watcher.problem {
             ProblemView(
                 title: "Slingshot could not start",
                 detail: problem,
@@ -326,7 +337,8 @@ struct ProblemView: View {
     let fix: Fix?
     let agent: String?
     let retrying: Bool
-    let retry: () -> Void
+    /// `nil` hides Try again, for problems only the fix can solve.
+    let retry: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -348,17 +360,19 @@ struct ProblemView: View {
                     command: fix.command
                 )
             }
-            Button(action: retry) {
-                HStack(spacing: 6) {
-                    if retrying {
-                        ProgressView().controlSize(.mini)
+            if let retry {
+                Button(action: retry) {
+                    HStack(spacing: 6) {
+                        if retrying {
+                            ProgressView().controlSize(.mini)
+                        }
+                        Text(retrying ? "Trying…" : "Try again")
                     }
-                    Text(retrying ? "Trying…" : "Try again")
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .controlSize(.regular)
+                .disabled(retrying)
             }
-            .controlSize(.regular)
-            .disabled(retrying)
         }
     }
 }

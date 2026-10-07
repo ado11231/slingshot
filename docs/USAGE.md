@@ -171,7 +171,7 @@
 
 1. Copies the files you changed to the Agent.
 2. Warns you if the Agent is low on memory or disk space.
-3. Runs the command in the same folder of the Agent's copy, and streams the output back.
+3. Runs the command in the same folder of the Agent's copy, reached at `~/Slingshot/<project>` on the Agent, and streams the output back. Docker Compose names the project after it.
 
 * A line shows where it runs: the Agent, the connection path, the project, and where build output goes.
 

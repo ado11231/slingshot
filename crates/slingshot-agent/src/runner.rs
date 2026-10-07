@@ -10,7 +10,7 @@ use slingshot_core::control::{JobKind, JobState};
 use slingshot_core::presentation::{Style, Tone};
 use slingshot_core::storage;
 use slingshot_core::tools;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -40,10 +40,14 @@ pub async fn run(
             projects::ensure_ready(&paths, &metadata)?;
             env = projects::prepare_artifacts(&paths)?;
             named = Some((metadata.id.clone(), metadata.name.clone()));
-            let directory = match cwd.as_deref() {
-                Some(rel) if !rel.is_empty() => paths.source.join(storage::relative(rel)?),
-                _ => paths.source.clone(),
-            };
+            let home = directories::BaseDirs::new().map(|dirs| dirs.home_dir().to_path_buf());
+            let directory = start_folder(
+                home.as_deref(),
+                &metadata.name,
+                &metadata.id,
+                &paths.source,
+                cwd.as_deref(),
+            )?;
             if !directory.is_dir() {
                 bail!(
                     "{} does not exist in the Agent copy. Run slingshot sync if it was just created",
@@ -68,7 +72,11 @@ pub async fn run(
 
     let terminal = unsafe { libc::isatty(0) } == 1;
     let mut child = tokio::process::Command::new(program);
-    child.args(args).current_dir(&directory).envs(env);
+    child
+        .args(args)
+        .current_dir(&directory)
+        .env("PWD", &directory)
+        .envs(env);
     if let Some(dirs) = directories::BaseDirs::new() {
         let path = std::env::var("PATH").unwrap_or_default();
         child.env("PATH", tools::with_user_folders(&path, dirs.home_dir()));
@@ -146,6 +154,25 @@ pub async fn run(
 
 /// A command that could not start exits the way a shell reports it: 127 when it does not
 /// exist, 126 when it cannot be run, so scripts see the same codes as locally.
+/// Where a run in a project starts: the same `~/Slingshot/<project>` link a session uses,
+/// so tools that name things after the folder, such as Docker Compose, see the project
+/// rather than the copy's `source` folder. The copy itself is the fallback.
+fn start_folder(
+    home: Option<&Path>,
+    name: &str,
+    id: &str,
+    source: &Path,
+    cwd: Option<&str>,
+) -> anyhow::Result<PathBuf> {
+    let base = home
+        .and_then(|home| jobs::project_link(home, name, id, source).ok())
+        .unwrap_or_else(|| source.to_path_buf());
+    Ok(match cwd {
+        Some(rel) if !rel.is_empty() => base.join(storage::relative(rel)?),
+        _ => base,
+    })
+}
+
 fn not_started(program: &str, error: &std::io::Error) -> (i32, String) {
     match error.kind() {
         std::io::ErrorKind::NotFound => (
@@ -241,6 +268,23 @@ mod tests {
         assert_eq!(final_state(false, false, 101), JobState::Failed);
         assert_eq!(final_state(false, true, 0), JobState::Interrupted);
         assert_eq!(final_state(true, false, 130), JobState::Stopped);
+    }
+
+    #[test]
+    fn runs_start_in_the_project_folder_named_after_the_project() {
+        let home = crate::testing::Root::new();
+        let source = home.0.join("copy").join("source");
+        std::fs::create_dir_all(source.join("api")).unwrap();
+        let start = |cwd| start_folder(Some(&home.0), "web app", "abcdef0123456789", &source, cwd);
+
+        let folder = home.0.join("Slingshot").join("web_app");
+        assert_eq!(start(None).unwrap(), folder);
+        assert_eq!(start(Some("api")).unwrap(), folder.join("api"));
+        assert!(start(Some("../outside")).is_err());
+        assert_eq!(
+            start_folder(None, "web app", "abcdef0123456789", &source, None).unwrap(),
+            source
+        );
     }
 
     #[test]

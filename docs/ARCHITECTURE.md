@@ -266,6 +266,7 @@ sequenceDiagram
 
 1. It lasts only as long as its connection.
 2. If the connection drops, the Agent stops it and records it as interrupted.
+3. Inside a project, it starts in the same `~/Slingshot/<project>` link as a session, so tools that name things after the folder, such as Docker Compose, use the project's name.
 
 * A **session** comes from `slingshot attach`.
 

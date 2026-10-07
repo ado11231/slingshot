@@ -169,8 +169,6 @@ pub struct Specs {
     pub cores: usize,
     pub memory_mib: u64,
     pub disk_total_mib: u64,
-    /// Tooling that was found on the Agent, such as docker or tmux.
-    pub tools: Vec<String>,
     /// Last, because toml cannot put a plain value after a list of tables.
     pub gpus: Vec<Gpu>,
 }

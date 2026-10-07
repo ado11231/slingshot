@@ -433,6 +433,15 @@ mod tests {
     }
 
     #[test]
+    fn specs_saved_with_the_old_tools_list_still_load() {
+        let saved = format!(
+            "{ONE}\n[agents.specs]\nname = \"archbox\"\nos = \"Arch Linux\"\nkernel = \"6.9.1\"\ncpu = \"i7\"\ncores = 16\nmemory_mib = 32000\ndisk_total_mib = 900000\ntools = [\"docker\"]\ngpus = []\n"
+        );
+        let loaded = config(&saved);
+        assert_eq!(loaded.agents[0].specs.as_ref().unwrap().cores, 16);
+    }
+
+    #[test]
     fn an_agent_with_cached_specs_survives_a_toml_round_trip() {
         let mut with_specs = agent("archbox");
         with_specs.daemon_port = Some(7433);
@@ -444,7 +453,6 @@ mod tests {
             cores: 12,
             memory_mib: 32000,
             disk_total_mib: 900000,
-            tools: vec!["docker".to_string()],
             gpus: vec![crate::protocol::Gpu {
                 name: "RTX 3070".to_string(),
                 vram_mib: Some(8192),

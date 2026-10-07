@@ -2,7 +2,10 @@
 
 use crate::presentation::{Style, Tone};
 use crate::telemetry::is_installed;
+use std::io::ErrorKind;
 use std::net::{SocketAddr, TcpStream};
+use std::os::unix::net::UnixStream;
+use std::path::Path;
 use std::time::Duration;
 
 /// How long to wait when testing whether something is listening.
@@ -144,6 +147,32 @@ pub fn tool_check(program: &str, needed_for: Option<&str>) -> Check {
     }
 }
 
+/// Docker is optional, so it gets a line only when it is installed and uses the usual
+/// socket. Opening the socket answers at once, where a `docker` command can hang, and a
+/// refusal means this account is not in the `docker` group. Sessions and the service keep
+/// the groups they started with, so the fix includes a restart.
+pub fn docker_check(user: &str) -> Option<Check> {
+    if !is_installed("docker") || std::env::var_os("DOCKER_HOST").is_some() {
+        return None;
+    }
+    docker_access(Path::new(DOCKER_SOCKET), user)
+}
+
+const DOCKER_SOCKET: &str = "/var/run/docker.sock";
+
+fn docker_access(socket: &Path, user: &str) -> Option<Check> {
+    match UnixStream::connect(socket) {
+        Ok(_) => Some(Check::pass("Docker available")),
+        Err(error) if error.kind() == ErrorKind::PermissionDenied => Some(Check::warn(
+            "Docker is installed, but this account cannot use it",
+            format!(
+                "sudo usermod -aG docker {user}, then restart this machine so sessions see the change"
+            ),
+        )),
+        Err(_) => None,
+    }
+}
+
 /// The checks `slingshot start` runs before it listens. SSH carries all work and control,
 /// rsync copies project source, and tmux is only needed once someone uses attach.
 pub fn start_checks() -> Vec<Check> {
@@ -178,6 +207,32 @@ mod tests {
         for manager in PACKAGE_MANAGERS {
             assert!(install_command(manager, "tmux").is_some(), "{manager}");
         }
+    }
+
+    /// A socket path must stay under about 100 bytes, which the system temp folder can
+    /// already pass, so the test socket lives in a short folder under `/tmp`.
+    #[test]
+    fn docker_is_checked_by_opening_its_socket() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = Path::new("/tmp").join(format!("sl-{}", &crate::storage::new_id()[..8]));
+        std::fs::create_dir(&dir).unwrap();
+        let socket = dir.join("s");
+        assert!(docker_access(&socket, "ado").is_none());
+
+        let _listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+        let open = docker_access(&socket, "ado").unwrap();
+        assert_eq!(open.state, State::Pass);
+
+        std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let closed = docker_access(&socket, "ado").unwrap();
+        assert_eq!(closed.state, State::Warn);
+        assert!(
+            closed
+                .fix
+                .unwrap()
+                .starts_with("sudo usermod -aG docker ado, then restart this machine")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

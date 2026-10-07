@@ -121,7 +121,13 @@ pub async fn start(name: Option<String>, port: u16, at_boot: AtBoot) -> anyhow::
     if at_boot == AtBoot::Remove {
         return boot::remove().await;
     }
-    if preflight::report(&preflight::start_checks()) {
+    let mut checks = preflight::start_checks();
+    checks.extend(
+        whoami()
+            .ok()
+            .and_then(|user| preflight::docker_check(&user)),
+    );
+    if preflight::report(&checks) {
         anyhow::bail!("Fix the reported errors, then run slingshot start again");
     }
 

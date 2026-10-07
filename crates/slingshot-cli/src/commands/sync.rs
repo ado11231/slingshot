@@ -48,7 +48,7 @@ pub async fn sync(
 }
 
 /// Paths changed only on the receiving side are left alone, and worth a look.
-fn report_kept(kept: usize, agent: &str, direction: Direction) {
+pub fn report_kept(kept: usize, agent: &str, direction: Direction) {
     if kept == 0 {
         return;
     }

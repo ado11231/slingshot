@@ -29,10 +29,10 @@
 1. Install Slingshot on both machines. It needs Rust and `rsync`, and the Agent also needs `tmux` and an ssh server. See [A Linux Agent](#a-linux-agent) below, or the [install guide](docs/USAGE.md#install) for other systems.
 
    ```sh
-   cargo install slingshot-cli
+   cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli
    ```
 
-2. On the Agent, start Slingshot. It prints a pairing code.
+2. On the Agent, start Slingshot. The first time, it offers to start by itself at boot. Then it prints a pairing code.
 
    ```sh
    slingshot start

@@ -22,7 +22,9 @@ pub enum Rule {
     Redirect { name: &'static str, target: PathBuf },
 }
 
-/// Combine split rules for every detected stack.
+/// Combine split rules for every detected stack. A Python `.venv` is the one exception and
+/// stays in the source copy: `python3 -m venv` refuses a link, and the scan skips `.venv`,
+/// so it is still never hashed, backed up, or copied.
 pub fn rules(project: &Project, layout: &Layout) -> Vec<Rule> {
     let mut rules = Vec::new();
 
@@ -38,16 +40,10 @@ pub fn rules(project: &Project, layout: &Layout) -> Vec<Rule> {
                 target: layout.artifacts.join("node_modules"),
             }),
 
-            Stack::Python => {
-                rules.push(Rule::Env {
-                    key: "PIP_CACHE_DIR",
-                    value: layout.artifacts.join("pip-cache"),
-                });
-                rules.push(Rule::Redirect {
-                    name: ".venv",
-                    target: layout.artifacts.join("venv"),
-                });
-            }
+            Stack::Python => rules.push(Rule::Env {
+                key: "PIP_CACHE_DIR",
+                value: layout.artifacts.join("pip-cache"),
+            }),
         }
     }
 
@@ -143,12 +139,19 @@ mod tests {
         );
     }
 
+    /// `python3 -m venv .venv` fails when `.venv` is a link, so only the pip cache moves.
     #[test]
-    fn python_needs_both_a_variable_and_a_link() {
+    fn python_moves_the_pip_cache_but_never_links_the_venv() {
         let rules = rules(&project(vec![Stack::Python]), &layout());
 
-        assert_eq!(variables(&rules).len(), 1);
-        assert_eq!(redirects(&rules).len(), 1);
+        assert_eq!(
+            variables(&rules),
+            vec![(
+                "PIP_CACHE_DIR".to_string(),
+                "/data/projects/1/artifacts/pip-cache".to_string()
+            )]
+        );
+        assert!(redirects(&rules).is_empty());
     }
 
     /// The rule that keeps source copies small. Build output must never land inside

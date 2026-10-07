@@ -660,6 +660,29 @@ mod tests {
         }
     }
 
+    /// A Python `.venv` lives in the Agent copy, so no sync may ever touch it.
+    #[test]
+    fn a_venv_on_the_receiver_survives_every_sync() {
+        let sides = Sides::new();
+        sides.sender.write("main.py", "print(1)");
+        sides.sender.write("old.py", "old");
+        sides.sync().unwrap();
+        sides.receiver.write(".venv/pyvenv.cfg", "home = /usr/bin");
+        sides.receiver.write(".venv/bin/python", "python");
+
+        fs::remove_file(sides.sender.path().join("old.py")).unwrap();
+        sides.sender.write("main.py", "print(2)");
+        let plan = sides.sync().unwrap();
+
+        assert_eq!(plan.changes, ["main.py", "old.py"]);
+        let receiver = sides.receiver.path();
+        assert_eq!(
+            fs::read_to_string(receiver.join(".venv/pyvenv.cfg")).unwrap(),
+            "home = /usr/bin"
+        );
+        assert!(receiver.join(".venv/bin/python").exists());
+    }
+
     #[test]
     fn apply_copies_changes_and_advances_the_baseline() {
         let sides = Sides::new();

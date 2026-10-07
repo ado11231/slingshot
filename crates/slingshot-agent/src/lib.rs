@@ -79,48 +79,55 @@ struct Agent {
     exchanging: AtomicBool,
 }
 
-/// Start the daemon: run the checks, print a pairing code, then listen.
-pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
-    let name = name
-        .or_else(sysinfo::System::host_name)
-        .unwrap_or_else(|| "agent".to_string());
+/// What Ctrl C does where `slingshot start` runs: stop the daemon this process runs, or
+/// only leave, when the daemon belongs to another `slingshot start` on this account.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Mode {
+    Daemon,
+    Beside,
+}
 
+impl Mode {
+    fn ctrl_c(self) -> &'static str {
+        match self {
+            Mode::Daemon => "Ctrl C to stop",
+            Mode::Beside => "Ctrl C to leave while Slingshot keeps running",
+        }
+    }
+}
+
+const REACHABLE: &str = "Reachable from other networks through iroh";
+
+/// Start the daemon: run the checks, show the linked Clients or a pairing code, then listen.
+/// When the daemon already runs for this account, show its status and pair beside it.
+pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
     if preflight::report(&preflight::start_checks()) {
         anyhow::bail!("Fix the reported errors, then run slingshot start again");
     }
 
-    let _service = service::start(name.clone())?;
     let root = service::root()?;
-    let identity = slingshot_core::tunnel::identity(&root)?;
-    let user = whoami().context("Could not work out which user is running the daemon")?;
-    let pairing = Pairing::new();
-    let token = pairing.token.clone();
-    let (chosen, listeners) = listen(port).await?;
-    if chosen != port {
-        presentation::warning(format!(
-            "Port {port} is in use, perhaps by slingshot start on another account, so this one uses {chosen}"
-        ));
+    if service::running(&root)? {
+        return beside(name, port, root).await;
     }
-    let addresses: Vec<SocketAddr> = listeners
-        .iter()
-        .filter_map(|listener| listener.local_addr().ok())
-        .collect();
 
-    let agent = Arc::new(Agent {
-        name: name.clone(),
-        user,
-        addresses: addresses
-            .iter()
-            .filter(|addr| !addr.ip().is_loopback())
-            .map(|addr| addr.ip().to_string())
-            .collect(),
+    let name = name
+        .or_else(sysinfo::System::host_name)
+        .unwrap_or_else(|| "agent".to_string());
+    let online = Arc::new(AtomicBool::new(false));
+    let _service = service::start(name.clone(), Arc::clone(&online))?;
+    let identity = slingshot_core::tunnel::identity(&root)?;
+    let linked = clients::names(&root)?;
+    let (agent, addresses) = pairing(
+        name.clone(),
+        port,
         root,
-        iroh: identity.public().to_string(),
-        pairing: Mutex::new(Some(pairing)),
-        exchanging: AtomicBool::new(false),
-    });
+        identity.public().to_string(),
+        first_code(&linked),
+    )
+    .await?;
 
     let endpoint = tunnel::start(identity, agent.root.clone()).await?;
+    tokio::spawn(mark_online(endpoint.clone(), online));
 
     let _awake = match awake::hold() {
         Some(awake) => {
@@ -133,15 +140,19 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
         }
     };
 
-    let mut tasks = Vec::new();
-    for listener in listeners {
-        let agent = Arc::clone(&agent);
-        tasks.push(tokio::spawn(accept_loop(listener, agent)));
-    }
-
     report_reach(&endpoint).await;
-    announce(&name, &addresses, &token);
-    tokio::spawn(new_codes_on_enter(Arc::clone(&agent), addresses));
+    show(
+        &agent,
+        &addresses,
+        env!("CARGO_PKG_VERSION"),
+        &linked,
+        Mode::Daemon,
+    );
+    tokio::spawn(new_codes_on_enter(
+        Arc::clone(&agent),
+        addresses,
+        Mode::Daemon,
+    ));
 
     let stop = stopped().await?;
     endpoint.close().await;
@@ -151,6 +162,100 @@ pub async fn start(name: Option<String>, port: u16) -> anyhow::Result<i32> {
     }
 
     Ok(0)
+}
+
+/// Pair beside a daemon another `slingshot start` runs, such as one started at boot. Pairing
+/// only writes files the daemon reads fresh, so the code never has to reach the daemon.
+async fn beside(name: Option<String>, port: u16, root: PathBuf) -> anyhow::Result<i32> {
+    let status = service::status(&root).await?;
+    if let Some(asked) = name.filter(|asked| *asked != status.name) {
+        anyhow::bail!(
+            "Slingshot is already running here as {}, not {asked}. Run slingshot start without --name",
+            status.name
+        );
+    }
+    let identity = slingshot_core::tunnel::identity(&root)?;
+    let linked = clients::names(&root)?;
+    let (agent, addresses) = pairing(
+        status.name.clone(),
+        port,
+        root,
+        identity.public().to_string(),
+        first_code(&linked),
+    )
+    .await?;
+
+    match status.online {
+        true => presentation::success(REACHABLE),
+        false => presentation::warning(
+            "No iroh relay has answered yet, so other networks cannot reach this machine. The same network still works",
+        ),
+    }
+    show(&agent, &addresses, &status.release, &linked, Mode::Beside);
+    tokio::spawn(new_codes_on_enter(
+        Arc::clone(&agent),
+        addresses,
+        Mode::Beside,
+    ));
+
+    if stopped().await? != Stop::TerminalClosed {
+        eprintln!();
+        presentation::success(format!("Slingshot keeps running on {}", status.name));
+    }
+    Ok(0)
+}
+
+/// An Agent that already has linked Clients leads with them, and makes a code only when
+/// asked. A first start leads with a code, since linking is the only thing to do.
+fn first_code(linked: &[String]) -> Option<Pairing> {
+    linked.is_empty().then(Pairing::new)
+}
+
+/// Open the pairing port, and take connections on it until this process ends.
+async fn pairing(
+    name: String,
+    port: u16,
+    root: PathBuf,
+    iroh: String,
+    code: Option<Pairing>,
+) -> anyhow::Result<(Arc<Agent>, Vec<SocketAddr>)> {
+    let user = whoami().context("Could not work out which user is running the daemon")?;
+    let (chosen, listeners) = listen(port).await?;
+    if chosen != port {
+        presentation::warning(format!(
+            "Port {port} is in use, perhaps by slingshot start on another account, so this one uses {chosen}"
+        ));
+    }
+    let addresses: Vec<SocketAddr> = listeners
+        .iter()
+        .filter_map(|listener| listener.local_addr().ok())
+        .collect();
+
+    let agent = Arc::new(Agent {
+        name,
+        user,
+        addresses: addresses
+            .iter()
+            .filter(|addr| !addr.ip().is_loopback())
+            .map(|addr| addr.ip().to_string())
+            .collect(),
+        root,
+        iroh,
+        pairing: Mutex::new(code),
+        exchanging: AtomicBool::new(false),
+    });
+
+    for listener in listeners {
+        tokio::spawn(accept_loop(listener, Arc::clone(&agent)));
+    }
+    Ok((agent, addresses))
+}
+
+/// Record when an iroh relay first answers, for `Status`. The endpoint keeps trying after
+/// `report_reach` gives up, so a late answer still counts.
+async fn mark_online(endpoint: iroh::Endpoint, online: Arc<AtomicBool>) {
+    endpoint.online().await;
+    online.store(true, Ordering::SeqCst);
 }
 
 #[derive(Debug, PartialEq)]
@@ -192,7 +297,7 @@ fn sleep_warning(over_ssh: bool) -> &'static str {
 async fn report_reach(endpoint: &iroh::Endpoint) {
     let step = step::start("Connecting to iroh relays");
     match tunnel::online(endpoint).await {
-        true => step.done("Reachable from other networks through iroh"),
+        true => step.done(REACHABLE),
         false => {
             step.clear();
             presentation::warning(
@@ -204,13 +309,13 @@ async fn report_reach(endpoint: &iroh::Endpoint) {
 
 /// Replace the pairing code each time Enter is pressed, for linking another machine or after
 /// a code was burned. Stops quietly when there is no terminal to read.
-async fn new_codes_on_enter(agent: Arc<Agent>, addresses: Vec<SocketAddr>) {
+async fn new_codes_on_enter(agent: Arc<Agent>, addresses: Vec<SocketAddr>, mode: Mode) {
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     while let Ok(Some(_)) = lines.next_line().await {
         let pairing = Pairing::new();
         let token = pairing.token.clone();
         *agent.pairing.lock().expect("pairing lock was poisoned") = Some(pairing);
-        announce(&agent.name, &addresses, &token);
+        announce(&addresses, &token, mode);
     }
 }
 
@@ -487,9 +592,53 @@ fn local_ip_towards(target: &str) -> Option<IpAddr> {
     }
 }
 
+/// The start screen: which Agent runs and which release, then the pairing code, or the
+/// linked Clients and how to ask for a code.
+fn show(agent: &Agent, addresses: &[SocketAddr], release: &str, linked: &[String], mode: Mode) {
+    let style = Style::stderr();
+    eprintln!();
+    eprintln!(
+        "{} Slingshot {} is running on {}",
+        style.paint("▶", Tone::Info),
+        style.dim(release),
+        style.paint(&agent.name, Tone::Info)
+    );
+    let token = agent
+        .pairing
+        .lock()
+        .expect("pairing lock was poisoned")
+        .as_ref()
+        .map(|pairing| pairing.token.clone());
+    match token {
+        Some(token) => announce(addresses, &token, mode),
+        None => {
+            eprintln!();
+            eprint!("{}", presentation::row("Linked", linked.join(", ")));
+            eprintln!();
+            eprintln!("  {}", style.dim(ask_for_code(mode)));
+            eprintln!();
+        }
+    }
+}
+
+fn code_footer(mode: Mode) -> String {
+    format!(
+        "The code works once and expires in {} minutes. Press Enter for a new code, or {}",
+        CODE_LIFETIME.as_secs() / 60,
+        mode.ctrl_c()
+    )
+}
+
+fn ask_for_code(mode: Mode) -> String {
+    format!(
+        "Press Enter for a code to link another machine, or {}",
+        mode.ctrl_c()
+    )
+}
+
 /// Print the pairing token only to the owner's console, never to logs or files.
 /// Show a complete copyable command for each available address.
-fn announce(name: &str, addresses: &[SocketAddr], token: &str) {
+fn announce(addresses: &[SocketAddr], token: &str, mode: Mode) {
     let reachable: Vec<&SocketAddr> = addresses.iter().filter(|a| !a.ip().is_loopback()).collect();
 
     let offered = match reachable.is_empty() {
@@ -498,13 +647,6 @@ fn announce(name: &str, addresses: &[SocketAddr], token: &str) {
     };
 
     let style = Style::stderr();
-    eprintln!();
-    eprintln!(
-        "{} Slingshot {} is running on {}",
-        style.paint("▶", Tone::Info),
-        style.dim(env!("CARGO_PKG_VERSION")),
-        style.paint(name, Tone::Info)
-    );
     eprintln!();
 
     if offered.is_empty() {
@@ -536,13 +678,7 @@ fn announce(name: &str, addresses: &[SocketAddr], token: &str) {
     }
 
     eprintln!();
-    eprintln!(
-        "  {}",
-        style.dim(format!(
-            "The code works once and expires in {} minutes. Press Enter for a new code, or Ctrl C to stop",
-            CODE_LIFETIME.as_secs() / 60
-        ))
-    );
+    eprintln!("  {}", style.dim(code_footer(mode)));
     eprintln!();
 }
 
@@ -606,6 +742,18 @@ mod tests {
             Response::Error { message } => message,
             other => panic!("expected an error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn a_first_start_leads_with_a_code_and_a_linked_agent_does_not() {
+        assert!(first_code(&[]).is_some());
+        assert!(first_code(&["laptop".to_string()]).is_none());
+    }
+
+    #[test]
+    fn leaving_beside_the_daemon_says_it_keeps_running() {
+        assert!(code_footer(Mode::Daemon).ends_with("Ctrl C to stop"));
+        assert!(ask_for_code(Mode::Beside).ends_with("Slingshot keeps running"));
     }
 
     #[test]

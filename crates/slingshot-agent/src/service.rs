@@ -6,12 +6,13 @@
 
 use crate::{jobs, projects};
 use anyhow::{Context, bail};
-use slingshot_core::control::{self, AgentTools, Request, Response};
+use slingshot_core::control::{self, AgentStatus, AgentTools, Request, Response};
 use slingshot_core::{preflight, storage, telemetry, tools};
 use std::fs::File;
 use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{UnixListener, UnixStream};
@@ -40,7 +41,14 @@ pub struct Service {
     _guard: File,
 }
 
-pub fn start(name: String) -> anyhow::Result<Service> {
+/// Whether the daemon is already running for this account, held by another `slingshot start`.
+pub fn running(root: &Path) -> anyhow::Result<bool> {
+    storage::private_dir(root)?;
+    Ok(storage::try_lock(&root.join("daemon.lock"))?.is_none())
+}
+
+/// `online` turns true once an iroh relay answers, and is reported by `Status`.
+pub fn start(name: String, online: Arc<AtomicBool>) -> anyhow::Result<Service> {
     let root = root()?;
     storage::private_dir(&root)?;
     let guard = storage::try_lock(&root.join("daemon.lock"))?
@@ -61,17 +69,22 @@ pub fn start(name: String) -> anyhow::Result<Service> {
     let listener =
         UnixListener::bind(&path).with_context(|| format!("Could not open {}", path.display()))?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-    tokio::spawn(accept(listener, Arc::new(root), Arc::new(name)));
+    tokio::spawn(accept(listener, Arc::new(root), Arc::new(name), online));
     Ok(Service { _guard: guard })
 }
 
-async fn accept(listener: UnixListener, root: Arc<PathBuf>, name: Arc<String>) {
+async fn accept(
+    listener: UnixListener,
+    root: Arc<PathBuf>,
+    name: Arc<String>,
+    online: Arc<AtomicBool>,
+) {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
-                let (root, name) = (root.clone(), name.clone());
+                let (root, name, online) = (root.clone(), name.clone(), online.clone());
                 tokio::spawn(async move {
-                    if let Err(error) = connection(stream, root, name).await {
+                    if let Err(error) = connection(stream, root, name, online).await {
                         warn!("control connection failed: {error:#}");
                     }
                 });
@@ -88,6 +101,7 @@ async fn connection(
     stream: UnixStream,
     root: Arc<PathBuf>,
     name: Arc<String>,
+    online: Arc<AtomicBool>,
 ) -> anyhow::Result<()> {
     let peer = stream.peer_cred()?;
     if peer.uid() != unsafe { libc::getuid() } {
@@ -115,7 +129,7 @@ async fn connection(
             };
         limit = IDLE;
         let (response, returned) =
-            dispatch(request, root.clone(), name.clone(), lease.take()).await;
+            dispatch(request, root.clone(), name.clone(), &online, lease.take()).await;
         lease = returned;
         let reply = response.unwrap_or_else(|error| Response::Error(format!("{error:#}")));
         tokio::time::timeout(WRITE_TIMEOUT, control::write_frame(&mut writer, &reply))
@@ -135,10 +149,20 @@ async fn dispatch(
     request: Request,
     root: Arc<PathBuf>,
     name: Arc<String>,
+    online: &AtomicBool,
     lease: Option<projects::Lease>,
 ) -> Handled {
-    if let Request::Ping = request {
-        return (Ok(Response::Pong), lease);
+    match request {
+        Request::Ping => return (Ok(Response::Pong), lease),
+        Request::Status => {
+            let status = AgentStatus {
+                name: name.to_string(),
+                release: control::RELEASE.to_string(),
+                online: online.load(Ordering::SeqCst),
+            };
+            return (Ok(Response::Status(status)), lease);
+        }
+        _ => {}
     }
     let joined =
         tokio::task::spawn_blocking(move || with_lease(&root, &name, request, lease)).await;
@@ -237,6 +261,7 @@ fn respond(root: &Path, name: &str, request: Request) -> anyhow::Result<Response
         }
         Request::Tools => Response::Tools(agent_tools(root)?),
         Request::Ping
+        | Request::Status
         | Request::Begin { .. }
         | Request::Finish { .. }
         | Request::Release { .. } => {
@@ -265,6 +290,26 @@ fn agent_tools(root: &Path) -> anyhow::Result<AgentTools> {
         signed_out: tools::signed_out(&output),
         admin: tools::admin(&output),
     })
+}
+
+/// Ask the daemon another `slingshot start` runs what it calls itself, for pairing beside it.
+pub async fn status(root: &Path) -> anyhow::Result<AgentStatus> {
+    const NO_ANSWER: &str = "Slingshot is running for this account but did not answer. Stop the other slingshot start, then run slingshot start again";
+    let mut stream = UnixStream::connect(socket(root)).await.context(NO_ANSWER)?;
+    let asked = async {
+        control::write_frame(&mut stream, &Request::Status).await?;
+        control::read_frame::<_, Response>(&mut stream).await
+    };
+    match tokio::time::timeout(FIRST_REQUEST, asked)
+        .await
+        .context(NO_ANSWER)?
+    {
+        Ok(Some(Response::Status(status))) => Ok(status),
+        Err(error) if error.downcast_ref::<control::Mismatch>().is_some() => bail!(
+            "A different version of Slingshot is already running for this account. Stop the other slingshot start, then run slingshot start again"
+        ),
+        _ => bail!(NO_ANSWER),
+    }
 }
 
 /// The hidden helper run over SSH. It only relays bytes; the daemon enforces versions,
@@ -313,8 +358,23 @@ mod tests {
             listener,
             Arc::new(root.0.clone()),
             Arc::new("box".into()),
+            Arc::new(AtomicBool::new(true)),
         ));
         path
+    }
+
+    #[tokio::test]
+    async fn status_names_the_running_daemon() {
+        let root = Root::new();
+        let path = serve(&root);
+        let mut stream = UnixStream::connect(&path).await.unwrap();
+        let _ = std::fs::remove_file(&path);
+        let Response::Status(status) = call(&mut stream, Request::Status).await else {
+            panic!("expected a status");
+        };
+        assert_eq!(status.name, "box");
+        assert_eq!(status.release, control::RELEASE);
+        assert!(status.online);
     }
 
     #[tokio::test]

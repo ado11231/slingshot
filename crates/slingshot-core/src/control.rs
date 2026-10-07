@@ -14,7 +14,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Wire version of this control protocol. Both machines must agree on it, so any change
 /// to a request or response shape has to raise it.
-pub const VERSION: u32 = 10;
+pub const VERSION: u32 = 11;
 
 /// Largest frame in either direction. Manifests for very large projects are the limit.
 pub const MAX_FRAME: u32 = 16 * 1024 * 1024;
@@ -120,6 +120,9 @@ pub enum Request {
     },
     /// Which developer tools a session on the Agent would find.
     Tools,
+    /// What the running daemon calls itself and whether iroh reaches it, for a second
+    /// `slingshot start` on the same account.
+    Status,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,6 +142,17 @@ pub enum Response {
     EnvironmentFiles(Vec<String>),
     Unlinked { environment_files: usize },
     Tools(AgentTools),
+    Status(AgentStatus),
+}
+
+/// The running daemon, as a second `slingshot start` on the same account shows it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentStatus {
+    pub name: String,
+    /// The daemon's release, such as `0.1.0`.
+    pub release: String,
+    /// Whether an iroh relay has answered, which makes the Agent reachable from other networks.
+    pub online: bool,
 }
 
 /// The developer tools on the Agent, and what installing more of them needs there.

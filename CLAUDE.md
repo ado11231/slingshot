@@ -313,7 +313,7 @@
 ## 15. Current State
 
 * **Phases 1, 3, and 4 are complete.** Phase 5 is in progress: the menu bar app, notifications, and the fixes from the October 7, 2026 fresh install test are built, and automatic port forwarding is not.
-* **Next:** the last fresh install findings (#93, #91, #92), then port forwarding (#9), then local models (#20, #38 to #40).
+* **Next:** port forwarding (#9), then local models (#20, #38 to #40). Every finding from the October 7, 2026 fresh install test is fixed.
 * **All tests, formatting, and Clippy pass on `master`.** CI checks every pull request on Linux and macOS.
 * **The rename from borrow has no migration.** Both machines must run `slingshot link` again after updating.
 * Everything under [known limitations](docs/ROADMAP.md#known-limitations) does not work yet. Never describe it as working.

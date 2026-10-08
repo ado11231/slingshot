@@ -91,6 +91,37 @@ pub async fn preview(
     local: &Local,
     direction: Direction,
 ) -> anyhow::Result<Plan> {
+    let (plan, sender, receiver) = planned(opened, local, direction).await?;
+    print!(
+        "{}",
+        preview_text(
+            &plan,
+            &sender,
+            &receiver,
+            &agent.name,
+            direction,
+            Style::stdout()
+        )
+    );
+    Ok(plan)
+}
+
+/// The files a sync in `direction` would find changed on both machines, without changing
+/// anything, so `--overwrite` can list them before asking.
+pub async fn conflicts(
+    opened: &mut ProjectSession,
+    local: &Local,
+    direction: Direction,
+) -> anyhow::Result<Vec<String>> {
+    Ok(planned(opened, local, direction).await?.0.conflicts)
+}
+
+/// The plan for a sync in `direction`, with the sending and receiving manifests.
+async fn planned(
+    opened: &mut ProjectSession,
+    local: &Local,
+    direction: Direction,
+) -> anyhow::Result<(Plan, Manifest, Manifest)> {
     recover_local(local, &opened.id).await?;
     let excludes = source::client_excludes(&local.root)?;
     let snapshot = match opened
@@ -109,22 +140,10 @@ pub async fn preview(
         Direction::Push => sync::plan(&snapshot.baseline, &local_manifest, &snapshot.manifest),
         Direction::Pull => sync::plan(&snapshot.baseline, &snapshot.manifest, &local_manifest),
     };
-    let (sender, receiver) = match direction {
-        Direction::Push => (&local_manifest, &snapshot.manifest),
-        Direction::Pull => (&snapshot.manifest, &local_manifest),
-    };
-    print!(
-        "{}",
-        preview_text(
-            &plan,
-            sender,
-            receiver,
-            &agent.name,
-            direction,
-            Style::stdout()
-        )
-    );
-    Ok(plan)
+    Ok(match direction {
+        Direction::Push => (plan, local_manifest, snapshot.manifest),
+        Direction::Pull => (plan, snapshot.manifest, local_manifest),
+    })
 }
 
 /// Finish any interrupted sync on this machine, then take the Agent's lease. Push and pull
@@ -157,17 +176,24 @@ async fn release_on_error<T>(
 }
 
 /// Copy Client edits to the Agent, saying on `step` what is being copied.
+/// Copy local edits to the Agent. `overwrite` lists conflicts the owner chose to settle with
+/// this machine's version; the Agent checks the same list before applying anything.
 pub async fn push(
     opened: &mut ProjectSession,
     agent: &Agent,
     local: &Local,
     step: &Step,
+    overwrite: &[String],
 ) -> anyhow::Result<SyncResult> {
     let (excludes, snapshot, token) = take_lease(opened, local, false).await?;
     let result = async {
         let (local_manifest, _) =
             scan_local(local, &opened.id, &excludes, &snapshot.baseline).await?;
-        let plan = sync::plan(&snapshot.baseline, &local_manifest, &snapshot.manifest);
+        let plan = sync::overwrite(
+            sync::plan(&snapshot.baseline, &local_manifest, &snapshot.manifest),
+            &local_manifest,
+            overwrite,
+        );
         refuse_conflicts(&plan, &agent.name)?;
         let files = regular_files(&plan, &local_manifest);
         if !files.is_empty() {
@@ -190,6 +216,7 @@ pub async fn push(
             .call(Request::Finish {
                 token: token.clone(),
                 manifest: local_manifest,
+                overwrite: overwrite.to_vec(),
             })
             .await?
         else {
@@ -234,7 +261,7 @@ pub fn finish(step: Step, outcome: &SyncResult, direction: Direction, agent: &st
 /// How many paths a pull names before summing up the rest, so a large pull stays readable.
 const NAMED: usize = 5;
 
-fn named(paths: &[String]) -> Vec<String> {
+pub fn named(paths: &[String]) -> Vec<String> {
     let mut lines: Vec<String> = paths.iter().take(NAMED).cloned().collect();
     if paths.len() > NAMED {
         lines.push(format!("and {} more", paths.len() - NAMED));
@@ -242,12 +269,14 @@ fn named(paths: &[String]) -> Vec<String> {
     lines
 }
 
-/// Copy Agent edits back to the Client, saying on `step` what is being copied.
+/// Copy Agent edits back to the Client, saying on `step` what is being copied. `overwrite`
+/// lists conflicts the owner chose to settle with the Agent's version.
 pub async fn pull(
     opened: &mut ProjectSession,
     agent: &Agent,
     local: &Local,
     step: &Step,
+    overwrite: &[String],
 ) -> anyhow::Result<SyncResult> {
     let state_dir = state_dir(&opened.id)?;
     let state = StateDir::new(&state_dir);
@@ -256,7 +285,11 @@ pub async fn pull(
     let result = async {
         let (local_manifest, rules) =
             scan_local(local, &opened.id, &excludes, &snapshot.baseline).await?;
-        let plan = sync::plan(&snapshot.baseline, &snapshot.manifest, &local_manifest);
+        let plan = sync::overwrite(
+            sync::plan(&snapshot.baseline, &snapshot.manifest, &local_manifest),
+            &snapshot.manifest,
+            overwrite,
+        );
         refuse_conflicts(&plan, &agent.name)?;
         for name in &plan.changes {
             storage::relative(name)
@@ -310,6 +343,7 @@ pub async fn pull(
             .call(Request::Finish {
                 token: token.clone(),
                 manifest: applied_manifest,
+                overwrite: Vec::new(),
             })
             .await?;
         Ok(SyncResult {
@@ -388,12 +422,9 @@ fn refuse_conflicts(plan: &Plan, agent: &str) -> anyhow::Result<()> {
 
 /// What changed on both sides, then the files, then how to look and what to do.
 fn conflict_message(paths: &[String], agent: &str) -> String {
-    let (headline, fix) = match paths {
-        [only] => (only.clone(), "make the file match on both"),
-        _ => (
-            presentation::plural(paths.len(), "file"),
-            "make each file match on both",
-        ),
+    let headline = match paths {
+        [only] => only.clone(),
+        _ => presentation::plural(paths.len(), "file"),
     };
     let mut lines = vec![format!(
         "{headline} changed on both this machine and {agent}"
@@ -402,22 +433,16 @@ fn conflict_message(paths: &[String], agent: &str) -> String {
         lines.extend(named(paths).into_iter().map(|name| format!("  {name}")));
     }
     lines.push("  Nothing was changed on either machine.".to_string());
-    lines.push(
-        presentation::row(
+    for (label, command) in [
+        (
             "Compare",
             "slingshot sync --check, then slingshot sync --pull --check",
-        )
-        .trim_end()
-        .to_string(),
-    );
-    lines.push(
-        presentation::row(
-            "Fix",
-            format!("{fix}, or undo one side's edit, then sync again"),
-        )
-        .trim_end()
-        .to_string(),
-    );
+        ),
+        ("Keep mine", "slingshot sync --overwrite"),
+        ("Keep theirs", "slingshot sync --pull --overwrite"),
+    ] {
+        lines.push(presentation::row(label, command).trim_end().to_string());
+    }
     lines.join("\n")
 }
 
@@ -674,14 +699,15 @@ mod tests {
                 "NOTES.md changed on both this machine and archbox",
                 "  Nothing was changed on either machine.",
                 "  Compare      slingshot sync --check, then slingshot sync --pull --check",
-                "  Fix          make the file match on both, or undo one side's edit, then sync again",
+                "  Keep mine    slingshot sync --overwrite",
+                "  Keep theirs  slingshot sync --pull --overwrite",
             ]
         );
         let many = conflict_message(&["a.rs".to_string(), "b.rs".to_string()], "archbox");
         assert!(
             many.starts_with("2 files changed on both this machine and archbox\n  a.rs\n  b.rs\n")
         );
-        assert!(many.contains("make each file match on both"));
+        assert!(many.ends_with("Keep theirs  slingshot sync --pull --overwrite"));
     }
 
     #[test]
@@ -784,6 +810,6 @@ mod tests {
         let error = error.to_string();
         assert!(error.starts_with("src/main.rs changed on both this machine and archbox"));
         assert!(error.contains("Nothing was changed"));
-        assert!(error.contains("then sync again"));
+        assert!(error.contains("slingshot sync --overwrite"));
     }
 }

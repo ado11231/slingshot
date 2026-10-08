@@ -163,7 +163,7 @@ async fn after_leaving(target: &Agent, local: Option<&Local>, session: &str) -> 
     let answer = opened.control.call(Request::Jobs { all: false }).await;
     say_left(target, still_running(answer.ok(), session));
     let step = transfer::syncing(local);
-    let result = transfer::pull(&mut opened, target, local, &step).await;
+    let result = transfer::pull(&mut opened, target, local, &step, &[]).await;
     opened.control.close().await;
     match result {
         Ok(outcome) => {
@@ -185,7 +185,7 @@ async fn after_leaving(target: &Agent, local: Option<&Local>, session: &str) -> 
 async fn project_session(target: &Agent, local: &Local) -> anyhow::Result<SessionInfo> {
     let mut opened = transfer::open(target, local).await?;
     let step = transfer::syncing(local);
-    match transfer::push(&mut opened, target, local, &step).await {
+    match transfer::push(&mut opened, target, local, &step, &[]).await {
         Ok(outcome) => transfer::finish(step, &outcome, Direction::Push, &target.name),
         Err(error)
             if opened.project.initialized

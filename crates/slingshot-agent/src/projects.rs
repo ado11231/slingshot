@@ -270,7 +270,15 @@ pub fn inspect(root: &Path, id: &str, excludes: &[String]) -> anyhow::Result<Sna
 /// Complete a transfer. A push applies staged files after checking them against the
 /// Client's manifest. A pull records only the paths where both copies now agree.
 /// The Client's claims are never trusted without checking.
-pub fn finish(root: &Path, lease: Lease, token: &str, manifest: Manifest) -> anyhow::Result<usize> {
+/// Apply a finished transfer. `overwrite` lists the conflicts the owner chose to settle in
+/// the Client's favor; any other conflict refuses the whole sync.
+pub fn finish(
+    root: &Path,
+    lease: Lease,
+    token: &str,
+    manifest: Manifest,
+    overwrite: &[String],
+) -> anyhow::Result<usize> {
     ensure!(
         lease.token == token,
         "Sync token does not match this transfer"
@@ -304,7 +312,11 @@ pub fn finish(root: &Path, lease: Lease, token: &str, manifest: Manifest) -> any
         return Ok(changed);
     }
 
-    let plan = sync::plan(&baseline, &manifest, &lease.before);
+    let plan = sync::overwrite(
+        sync::plan(&baseline, &manifest, &lease.before),
+        &manifest,
+        overwrite,
+    );
     if !plan.conflicts.is_empty() {
         bail!(
             "Both machines changed these paths:\n{}",
@@ -563,7 +575,10 @@ mod tests {
         )
         .unwrap();
         let token = lease.token.clone();
-        assert_eq!(finish(&root.0, lease, &token, manifest.clone()).unwrap(), 1);
+        assert_eq!(
+            finish(&root.0, lease, &token, manifest.clone(), &[]).unwrap(),
+            1
+        );
         let paths = Paths::new(&root.0, &id).unwrap();
         assert_eq!(
             fs::read_to_string(paths.source.join("src/main.rs")).unwrap(),
@@ -575,7 +590,7 @@ mod tests {
         let mut sneaky = manifest.clone();
         sneaky.insert(".env".into(), manifest["src/main.rs"].clone());
         let token = lease.token.clone();
-        let error = finish(&root.0, lease, &token, sneaky)
+        let error = finish(&root.0, lease, &token, sneaky, &[])
             .unwrap_err()
             .to_string();
         assert!(error.contains("excluded"), "{error}");
@@ -597,7 +612,7 @@ mod tests {
             },
         );
         let token = lease.token.clone();
-        assert!(finish(&root.0, lease, &token, manifest).is_err());
+        assert!(finish(&root.0, lease, &token, manifest, &[]).is_err());
         assert!(
             fs::symlink_metadata(Paths::new(&root.0, &id).unwrap().source.join("escape")).is_err()
         );
@@ -612,11 +627,11 @@ mod tests {
         let (lease, snapshot) = begin(&root.0, &id, Vec::new(), true).unwrap();
         assert_eq!(snapshot.transfer_path, paths.source.to_str().unwrap());
         let token = lease.token.clone();
-        finish(&root.0, lease, &token, Manifest::new()).unwrap();
+        finish(&root.0, lease, &token, Manifest::new(), &[]).unwrap();
         assert!(paths.sync_state().baseline().unwrap().is_empty());
         let (lease, snapshot) = begin(&root.0, &id, Vec::new(), true).unwrap();
         let token = lease.token.clone();
-        finish(&root.0, lease, &token, snapshot.manifest.clone()).unwrap();
+        finish(&root.0, lease, &token, snapshot.manifest.clone(), &[]).unwrap();
         assert_eq!(paths.sync_state().baseline().unwrap(), snapshot.manifest);
     }
 

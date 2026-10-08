@@ -58,6 +58,17 @@ pub async fn stop(agent: Option<String>, id: String) -> anyhow::Result<i32> {
     Ok(0)
 }
 
+/// What the state column says. An interruption other than Ctrl C means the connection was
+/// lost, and only a failure shows its exit code, since it is the one worth looking up.
+fn state_label(job: &Job) -> String {
+    match (job.state, job.exit_code) {
+        (JobState::Interrupted, Some(130)) => job.state.label().to_string(),
+        (JobState::Interrupted, _) if job.kind == JobKind::Run => "Lost connection".to_string(),
+        (JobState::Failed, Some(code)) => format!("{} {code}", job.state.label()),
+        _ => job.state.label().to_string(),
+    }
+}
+
 pub fn render(
     agent: &str,
     jobs: &[Job],
@@ -82,7 +93,7 @@ pub fn render(
         return output;
     }
     let header = format!(
-        "{:<8}  {:<7}  {:<12}  {:<16}  {:<9}  {}",
+        "{:<8}  {:<7}  {:<15}  {:<16}  {:<9}  {}",
         "ID", "KIND", "STATE", "PROJECT", "STARTED", "COMMAND"
     );
     output.push_str(&format!("  {}\n", style.dim(header)));
@@ -97,10 +108,7 @@ pub fn render(
             JobState::Stopped | JobState::Interrupted => Some(Tone::Warning),
             JobState::Failed => Some(Tone::Error),
         };
-        let mut state = job.state.label().to_string();
-        if let Some(code) = job.exit_code.filter(|_| job.state == JobState::Failed) {
-            state = format!("{state} {code}");
-        }
+        let state = state_label(job);
         let project = match &job.project_name {
             Some(name) => format!("{:<16}", name.chars().take(16).collect::<String>()),
             None => style.dim(format!("{:<16}", "home")),
@@ -110,8 +118,8 @@ pub fn render(
             storage::short_id(&job.id),
             kind,
             match tone {
-                Some(tone) => style.paint(format!("{state:<12}"), tone),
-                None => format!("{state:<12}"),
+                Some(tone) => style.paint(format!("{state:<15}"), tone),
+                None => format!("{state:<15}"),
             },
             project,
             ago(now.saturating_sub(job.started)),
@@ -180,11 +188,23 @@ mod tests {
         let text = render("archbox", &jobs, true, 10_000, None, Style::new(false));
         assert!(text.starts_with("Jobs on archbox\n\n"));
         assert!(text.contains(
-            "1a2b3c4d  Session  Running       app               50s ago    cargo build --release"
+            "1a2b3c4d  Session  Running          app               50s ago    cargo build --release"
         ));
         assert!(text.contains("Failed 101"));
         assert!(text.contains("2h ago"));
         assert!(!text.contains('\x1b'));
+    }
+
+    #[test]
+    fn a_run_cut_off_by_the_network_reads_as_a_lost_connection() {
+        let mut lost = job(JobKind::Run, JobState::Interrupted, 1000);
+        lost.exit_code = Some(141);
+        assert_eq!(state_label(&lost), "Lost connection");
+        lost.exit_code = Some(130);
+        assert_eq!(state_label(&lost), "Interrupted");
+        let mut failed = job(JobKind::Run, JobState::Failed, 1000);
+        failed.exit_code = Some(101);
+        assert_eq!(state_label(&failed), "Failed 101");
     }
 
     #[test]
@@ -201,8 +221,8 @@ mod tests {
             None,
             Style::new(false),
         );
-        assert!(text.contains("Interrupted   app"), "{text}");
-        assert!(text.contains("Stopped       app"), "{text}");
+        assert!(text.contains("Interrupted      app"), "{text}");
+        assert!(text.contains("Stopped          app"), "{text}");
         assert!(!text.contains("130"), "{text}");
     }
 
@@ -226,6 +246,6 @@ mod tests {
         let mut outside = job(JobKind::Run, JobState::Completed, 1000);
         outside.project_name = None;
         let text = render("archbox", &[outside], true, 1010, None, Style::new(false));
-        assert!(text.contains("Completed     home"), "{text}");
+        assert!(text.contains("Completed        home"), "{text}");
     }
 }

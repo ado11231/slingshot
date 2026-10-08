@@ -197,13 +197,17 @@ fn final_state(stop_requested: bool, disconnected: bool, code: i32) -> JobState 
         (true, _, _) => JobState::Stopped,
         (false, true, _) => JobState::Interrupted,
         (false, false, 0) => JobState::Completed,
-        (false, false, EXIT_INTERRUPTED) => JobState::Interrupted,
+        (false, false, EXIT_INTERRUPTED | EXIT_OUTPUT_CLOSED) => JobState::Interrupted,
         (false, false, _) => JobState::Failed,
     }
 }
 
 /// 128 plus SIGINT, the shell convention for a command ended by Ctrl C.
 const EXIT_INTERRUPTED: i32 = 128 + libc::SIGINT;
+
+/// 128 plus SIGPIPE. A run's output is its connection, so a run that dies writing to it
+/// lost the connection, often before the once a second check in `supervise` notices.
+const EXIT_OUTPUT_CLOSED: i32 = 128 + libc::SIGPIPE;
 
 /// Wait for the command, forwarding hangups and termination. A lost SSH connection is
 /// treated as a hangup. It is noticed when the output pipe closes or when the process
@@ -267,6 +271,7 @@ mod tests {
         assert_eq!(final_state(false, false, 130), JobState::Interrupted);
         assert_eq!(final_state(false, false, 101), JobState::Failed);
         assert_eq!(final_state(false, true, 0), JobState::Interrupted);
+        assert_eq!(final_state(false, false, 141), JobState::Interrupted);
         assert_eq!(final_state(true, false, 130), JobState::Stopped);
     }
 

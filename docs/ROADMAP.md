@@ -111,12 +111,15 @@
 27. Problem messages put what happened on the first line, and each fix on its own dimmed line.
 28. `link` and `tools` show their output in sections. Installers that need no `sudo` run without a terminal, with their output framed under the step.
 29. `ps --all` shows `Lost connection` for a run cut off by the network.
+30. Sessions scroll without moving the cursor, keep a blue selection that a click ends, show the connection path in a colored bar, and start clear when you return to a prompt. Ctrl B, K clears everything.
+31. A pull refuses names that differ only in case, and `sync --overwrite` or `sync --pull --overwrite` keeps one side's version of a conflict, with a backup.
+32. The menu bar moves to a better connection within about a minute when one comes back.
 
 * **Remaining:**
 
 1. Automatic port forwarding, so the Agent's port 3000 appears at `localhost:3000` on the Client.
 2. Notifications when a server is ready and when a job waits for input.
-3. The rest of the fresh install findings: sessions that feel local (#87), sync case clashes and keeping one side (#89), the menu bar route (#90), small output fixes (#93), one uninstall command (#91), and the README install steps split by machine (#92).
+3. The rest of the fresh install findings: small output fixes (#93), one uninstall command (#91), and the README install steps split by machine (#92).
 
 ## Planned
 
@@ -332,3 +335,12 @@
 7. A full `link` printed Pairing, Tools, Menu bar, and Ready sections. `slingshot tools` reinstalled Claude Code with its output framed, and did not sign in again.
 8. Killing a run's connection showed `Lost connection` in `ps --all`, and Ctrl C showed `Interrupted`.
 9. Not tested on real machines: the sessions PATH fix on a fresh account, since `ado` already had those folders on PATH.
+
+### Sessions, Sync, And The Menu Bar: October 7, 2026
+
+1. In a session driven from the Mac, the wheel inside a full screen program opened the history view and sent no arrow keys. A drag highlighted and copied text, and one click ended it. The owner confirmed both in a real terminal.
+2. Returning to a session at a prompt showed only the prompt, with earlier output in the scrollback. Returning while `cat -v` ran sent it nothing. Ctrl B, K left no scrollback.
+3. With `NOTES.md` on the Mac and `notes.md` added on archbox, a pull printed `NOTES.md and notes.md differ only in case` and changed nothing.
+4. On a real conflict, `sync --overwrite` gave archbox the Mac's version and `sync --pull --overwrite` the reverse, each with a backup of the replaced file. Answering no changed nothing. Both machines ran protocol 12.
+5. The owner moved the Mac from a phone hotspot to the home network and back. The menu bar switched paths within 30 to 50 seconds each time.
+

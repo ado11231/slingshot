@@ -8,9 +8,9 @@ pub mod event;
 pub mod state;
 
 use crate::client::{Control, unexpected};
-use crate::route;
+use crate::route::{self, Route};
 use event::{Event, Line, Status, VERSION};
-use slingshot_core::config::Config;
+use slingshot_core::config::{Agent, Config};
 use slingshot_core::control::{Request, Response};
 use state::Watch;
 use std::convert::Infallible;
@@ -26,6 +26,10 @@ const HEALTH_EVERY: Duration = Duration::from_secs(2);
 const JOBS_EVERY_TICKS: u32 = 2;
 
 const TICK_LIMIT: Duration = Duration::from_secs(15);
+
+/// About once a minute, look for a better path than the one in use, such as the local
+/// network again after a hotspot, and move to it without showing the Agent as offline.
+const BETTER_ROUTE_TICKS: u32 = 30;
 
 /// How often the helper checks whether its own program file was replaced. The check has
 /// its own thread, so a busy or stalled connection attempt can never delay it.
@@ -95,8 +99,9 @@ pub async fn run(agent: Option<String>) -> anyhow::Result<i32> {
 }
 
 /// One connection's worth of watching. It returns only when the Agent stops answering, and
-/// the caller reconnects. Configuration is read again each time, so linking or unlinking
-/// takes effect without restarting the app.
+/// the caller reconnects. When a better path answers, it moves there itself, so the panel
+/// never shows the Agent as offline for it. Configuration is read again each time, so
+/// linking or unlinking takes effect without restarting the app.
 async fn session(agent: Option<&str>, watch: &mut Option<Watch>) -> anyhow::Result<Infallible> {
     let config = Config::load()?;
     let target = config.resolve(agent)?;
@@ -107,35 +112,54 @@ async fn session(agent: Option<&str>, watch: &mut Option<Watch>) -> anyhow::Resu
         *watch = Some(Watch::new(&target.name));
     }
     let watch = watch.as_mut().expect("watch was just set");
-    let mut control = Control::connect(target).await?;
-    let path = route::resolve(target).name();
-    let mut ticks = 0u32;
     loop {
-        let jobs = ticks.is_multiple_of(JOBS_EVERY_TICKS);
-        let answer = tokio::time::timeout(TICK_LIMIT, poll(&mut control, jobs)).await;
-        let (health, jobs) = match answer {
-            Ok(Ok(answer)) => answer,
-            Ok(Err(error)) => {
+        let mut control = Control::connect(target).await?;
+        let current = route::resolve(target);
+        let path = current.name();
+        let mut ticks = 0u32;
+        loop {
+            if ticks > 0
+                && ticks.is_multiple_of(BETTER_ROUTE_TICKS)
+                && better_route(target, &current).await
+            {
                 control.close().await;
-                return Err(error);
+                route::forget();
+                break;
             }
-            Err(_) => {
-                control.close().await;
-                anyhow::bail!("{} did not answer in time", target.name);
+            let jobs = ticks.is_multiple_of(JOBS_EVERY_TICKS);
+            let answer = tokio::time::timeout(TICK_LIMIT, poll(&mut control, jobs)).await;
+            let (health, jobs) = match answer {
+                Ok(Ok(answer)) => answer,
+                Ok(Err(error)) => {
+                    control.close().await;
+                    return Err(error);
+                }
+                Err(_) => {
+                    control.close().await;
+                    anyhow::bail!("{} did not answer in time", target.name);
+                }
+            };
+            let mut notices = watch.reached(path);
+            notices.extend(watch.health(&health));
+            if let Some(jobs) = jobs {
+                notices.extend(watch.jobs(&jobs));
             }
-        };
-        let mut notices = watch.reached(path);
-        notices.extend(watch.health(&health));
-        if let Some(jobs) = jobs {
-            notices.extend(watch.jobs(&jobs));
+            emit(&Event::Status(Status::online(&target.name, path, &health)));
+            for notice in notices {
+                emit(&Event::Notice(notice));
+            }
+            ticks = ticks.wrapping_add(1);
+            tokio::time::sleep(HEALTH_EVERY).await;
         }
-        emit(&Event::Status(Status::online(&target.name, path, &health)));
-        for notice in notices {
-            emit(&Event::Notice(notice));
-        }
-        ticks = ticks.wrapping_add(1);
-        tokio::time::sleep(HEALTH_EVERY).await;
     }
+}
+
+/// Probing waits on the network, so it runs off the async runtime.
+async fn better_route(target: &Agent, current: &Route) -> bool {
+    let (target, current) = (target.clone(), current.clone());
+    tokio::task::spawn_blocking(move || route::better_than(&target, &current))
+        .await
+        .unwrap_or(false)
 }
 
 async fn poll(

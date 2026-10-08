@@ -120,6 +120,36 @@ fn probe_now(agent: &Agent) -> Route {
     }
 }
 
+/// Whether an address ranked above `current` answers now, so a process that outlives one
+/// network, such as the menu bar helper, can move to the better path once it is back.
+/// Only those better addresses are probed. It waits on the network, so call it off the
+/// async runtime.
+pub fn better_than(agent: &Agent, current: &Route) -> bool {
+    let port = agent.port.unwrap_or(SSH_PORT);
+    let attempts: Vec<_> = ahead_of(&agent.candidates(), current)
+        .into_iter()
+        .map(|host| {
+            let host = host.to_string();
+            std::thread::spawn(move || answers(&host, port))
+        })
+        .collect();
+    attempts
+        .into_iter()
+        .any(|attempt| attempt.join().unwrap_or(false))
+}
+
+/// The addresses ranked above `current`: all of them when on iroh, which ranks last.
+fn ahead_of<'a>(candidates: &[&'a str], current: &Route) -> Vec<&'a str> {
+    match current {
+        Route::Direct { host, .. } => candidates
+            .iter()
+            .take_while(|candidate| **candidate != host)
+            .copied()
+            .collect(),
+        Route::Iroh { .. } => candidates.to_vec(),
+    }
+}
+
 /// The Agent's iroh key, if pairing saved one that parses. Checked here so nothing
 /// malformed ever reaches ssh's ProxyCommand.
 fn iroh_key(agent: &Agent) -> Option<String> {
@@ -173,6 +203,34 @@ mod tests {
         let target = agent("192.0.2.1", &["127.0.0.1"], Some(port));
 
         assert_eq!(probe(&target), Route::to("127.0.0.1"));
+    }
+
+    #[test]
+    fn only_addresses_ranked_above_the_current_path_are_better() {
+        let candidates = ["10.0.0.5", "100.64.0.9"];
+        assert_eq!(
+            ahead_of(&candidates, &Route::to("100.64.0.9")),
+            ["10.0.0.5"]
+        );
+        assert!(ahead_of(&candidates, &Route::to("10.0.0.5")).is_empty());
+        let iroh = Route::Iroh {
+            key: KEY.to_string(),
+        };
+        assert_eq!(ahead_of(&candidates, &iroh), candidates);
+    }
+
+    #[test]
+    fn a_better_path_is_found_once_it_answers() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let target = with_iroh("127.0.0.1", &[], Some(port), Some(KEY));
+        let iroh = Route::Iroh {
+            key: KEY.to_string(),
+        };
+        assert!(better_than(&target, &iroh));
+        assert!(!better_than(&target, &Route::to("127.0.0.1")));
+        drop(listener);
+        assert!(!better_than(&target, &iroh));
     }
 
     #[test]

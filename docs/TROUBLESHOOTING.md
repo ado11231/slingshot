@@ -308,7 +308,7 @@
 
 ### Run Lost Its Connection
 
-* **Message:** `Lost connection to archbox. The Agent stops the run once it notices`
+* **Message:** `Lost connection to archbox`, followed by `The Agent stops the run once it notices`
 * **Meaning:** A run stops when its connection drops.
 * **Fix:** Check how it ended with `slingshot ps --all`. Use `slingshot attach` for work that must keep going.
 
@@ -338,7 +338,7 @@
 
 ### Edits Not Pulled After Leaving
 
-* **Message:** `! Did not bring back edits from archbox: These paths changed differently on this machine and archbox`, where archbox is your Agent
+* **Message:** `! Did not bring back edits: NOTES.md changed on both this machine and archbox`, where NOTES.md is the file and archbox is your Agent
 * **Meaning:** You left the session, and the same files changed in both places. Nothing was overwritten. Both versions are kept.
 * **Fix:** Follow [Conflict](#conflict), then run `slingshot sync --pull`.
 
@@ -364,7 +364,7 @@
 
 ### Conflict
 
-* **Message:** `These paths changed differently on this machine and archbox`
+* **Message:** `NOTES.md changed on both this machine and archbox`, or `3 files changed on both this machine and archbox` followed by their names
 * **Meaning:** The same files changed on both machines in different ways. Nothing was copied.
 * **Fix:**
 

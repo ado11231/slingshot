@@ -55,8 +55,6 @@ pub fn plan(base: &Manifest, sender: &Manifest, receiver: &Manifest) -> Plan {
     result
 }
 
-/// The baseline after a transfer: paths where both sides now agree take the shared
-/// value, and every other path keeps its previous baseline entry.
 /// Pairs of paths that differ only in case, which a disk that ignores case, such as a Mac's
 /// by default, cannot hold side by side.
 pub fn case_clashes(manifest: &Manifest) -> Vec<(String, String)> {
@@ -73,6 +71,8 @@ pub fn case_clashes(manifest: &Manifest) -> Vec<(String, String)> {
     clashes
 }
 
+/// The baseline after a transfer: paths where both sides now agree take the shared
+/// value, and every other path keeps its previous baseline entry.
 pub fn agreed(base: &Manifest, one: &Manifest, other: &Manifest) -> Manifest {
     let mut result = base.clone();
     let names: BTreeSet<&String> = one.keys().chain(other.keys()).chain(base.keys()).collect();

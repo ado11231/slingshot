@@ -372,6 +372,12 @@
 2. Make each listed file match on both machines, or undo one edit.
 3. Run the sync again.
 
+### Names Differ Only In Case
+
+* **Message:** `NOTES.md and notes.md differ only in case`
+* **Meaning:** The Agent has two files whose names differ only in capital letters. This machine's disk treats them as one name, as a Mac does by default, so bringing both back would overwrite one. Nothing was changed.
+* **Fix:** Rename or remove one of them on the Agent, then run the sync again.
+
 ### Interrupted Sync
 
 * **Message:** `An interrupted sync of app needs recovery. Run slingshot sync to recover it`, where app is your project

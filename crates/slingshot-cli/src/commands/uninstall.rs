@@ -11,8 +11,9 @@ use std::path::{Path, PathBuf};
 
 const REMOVE_PROGRAM: &str = "cargo uninstall slingshot-cli";
 
-/// What this machine keeps as a Client.
+/// What this machine keeps as a Client, and as an Agent when it is one.
 struct Found {
+    agent: slingshot_agent::uninstall::Found,
     agents: Vec<String>,
     menubar: Option<PathBuf>,
     /// The Client's own settings and data. Only these, never the whole folder, because on a
@@ -25,6 +26,7 @@ impl Found {
     fn look() -> anyhow::Result<Found> {
         let data = storage::data_dir()?;
         Ok(Found {
+            agent: slingshot_agent::uninstall::Found::look()?,
             agents: Config::load_or_empty()?.names(),
             menubar: super::menubar::installed(),
             files: existing([
@@ -37,7 +39,8 @@ impl Found {
     }
 
     fn is_empty(&self) -> bool {
-        self.agents.is_empty()
+        self.agent.is_empty()
+            && self.agents.is_empty()
             && self.menubar.is_none()
             && self.files.is_empty()
             && self.keys.is_empty()
@@ -83,6 +86,8 @@ pub async fn uninstall() -> anyhow::Result<i32> {
         super::menubar::remove_app(app).await?;
         presentation::success("Removed the menu bar app");
     }
+    let was_service = found.agent.service.is_some();
+    found.agent.remove()?;
     for path in found.files.iter().chain(&found.keys) {
         remove(path)?;
         presentation::success(format!("Removed {}", home_path(path)));
@@ -93,6 +98,12 @@ pub async fn uninstall() -> anyhow::Result<i32> {
     presentation::success(format!(
         "Slingshot's files are gone. Remove the program with: {REMOVE_PROGRAM}"
     ));
+    if was_service && cfg!(target_os = "linux") {
+        presentation::detail(
+            "Linger",
+            "still on for this account. Turn it off with sudo loginctl disable-linger $USER if nothing else needs it",
+        );
+    }
     Ok(0)
 }
 
@@ -111,6 +122,9 @@ fn listing(found: &Found) -> Vec<String> {
             "Menu bar",
             format!("{}, its login item and settings", home_path(app)),
         ));
+    }
+    for (label, value) in found.agent.listing() {
+        lines.push(row(label, value));
     }
     for (index, file) in found.files.iter().enumerate() {
         let label = if index == 0 { "Settings" } else { "" };
@@ -147,6 +161,13 @@ mod tests {
     #[test]
     fn everything_found_is_listed_with_a_label_once_per_kind() {
         let found = Found {
+            agent: slingshot_agent::uninstall::Found {
+                service: None,
+                active: Vec::new(),
+                data: None,
+                links: None,
+                clients: 2,
+            },
             agents: vec!["archbox".into(), "devbox".into()],
             menubar: None,
             files: vec![PathBuf::from("/x/slingshot/config.toml")],
@@ -161,6 +182,7 @@ mod tests {
             [
                 "  Links        archbox: this machine's key and environment files there",
                 "               devbox: this machine's key and environment files there",
+                "  Access       2 linked machines lose access (their lines in ~/.ssh/authorized_keys)",
                 "  Settings     /x/slingshot/config.toml",
                 "  Key          /x/k",
                 "               /x/k.pub",

@@ -120,6 +120,38 @@ fn write_lines(file: &Path, lines: &[String]) -> anyhow::Result<()> {
     storage::write_bytes(file, body.as_bytes())
 }
 
+/// How many Clients Slingshot gave access to this account, by its marker on their lines.
+pub fn authorized_clients() -> anyhow::Result<usize> {
+    let file = ssh_dir()?.join("authorized_keys");
+    let existing = fs::read_to_string(file).unwrap_or_default();
+    Ok(existing.lines().filter(|line| from_slingshot(line)).count())
+}
+
+/// Remove every line Slingshot installed for a Client, keeping all other keys.
+pub fn revoke_clients() -> anyhow::Result<usize> {
+    let file = ssh_dir()?.join("authorized_keys");
+    let Ok(existing) = fs::read_to_string(&file) else {
+        return Ok(0);
+    };
+    let kept: Vec<String> = existing
+        .lines()
+        .filter(|line| !from_slingshot(line))
+        .map(str::to_string)
+        .collect();
+    let removed = existing.lines().count() - kept.len();
+    if removed > 0 {
+        write_lines(&file, &kept)?;
+    }
+    Ok(removed)
+}
+
+/// A line whose comment is Slingshot's marker, as `authorized_line` writes it.
+fn from_slingshot(line: &str) -> bool {
+    line.split_whitespace()
+        .last()
+        .is_some_and(|comment| comment.starts_with(&marker("")))
+}
+
 /// Authorize a public key using the same marker that unlink uses to revoke it.
 /// Rewrite complete lines so a missing trailing newline cannot merge keys.
 /// Both machines use this to establish trust without sharing private keys.
@@ -183,6 +215,14 @@ pub fn ssh_dir() -> anyhow::Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_lines_slingshot_installed_count_as_its_clients() {
+        assert!(from_slingshot("ssh-ed25519 AAAA slingshot:laptop-1a2b3c"));
+        assert!(!from_slingshot("ssh-ed25519 AAAA me@laptop"));
+        assert!(!from_slingshot("ssh-ed25519 AAAA slingshot-fan"));
+        assert!(!from_slingshot(""));
+    }
 
     #[test]
     fn the_usual_port_is_written_plainly() {

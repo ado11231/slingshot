@@ -8,7 +8,7 @@ use crate::source::{self, Entry, Manifest};
 use crate::storage::{self, PARTIAL_PREFIX};
 use anyhow::{Context, bail, ensure};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
@@ -57,6 +57,22 @@ pub fn plan(base: &Manifest, sender: &Manifest, receiver: &Manifest) -> Plan {
 
 /// The baseline after a transfer: paths where both sides now agree take the shared
 /// value, and every other path keeps its previous baseline entry.
+/// Pairs of paths that differ only in case, which a disk that ignores case, such as a Mac's
+/// by default, cannot hold side by side.
+pub fn case_clashes(manifest: &Manifest) -> Vec<(String, String)> {
+    let mut seen: BTreeMap<String, &String> = BTreeMap::new();
+    let mut clashes = Vec::new();
+    for name in manifest.keys() {
+        match seen.get(&name.to_lowercase()) {
+            Some(first) => clashes.push(((*first).clone(), name.clone())),
+            None => {
+                seen.insert(name.to_lowercase(), name);
+            }
+        }
+    }
+    clashes
+}
+
 pub fn agreed(base: &Manifest, one: &Manifest, other: &Manifest) -> Manifest {
     let mut result = base.clone();
     let names: BTreeSet<&String> = one.keys().chain(other.keys()).chain(base.keys()).collect();
@@ -508,6 +524,16 @@ mod tests {
     /// An interrupted step can leave a symlink where a regular file used to be. Reading
     /// the destination's permissions must not follow that link, or the restored file
     /// inherits the mode of whatever the link pointed at, possibly outside the project.
+    #[test]
+    fn names_that_differ_only_in_case_are_found() {
+        let names = manifest(&[("NOTES.md", "a"), ("notes.md", "b"), ("src/main.rs", "c")]);
+        assert_eq!(
+            case_clashes(&names),
+            [("NOTES.md".to_string(), "notes.md".to_string())]
+        );
+        assert!(case_clashes(&manifest(&[("a.rs", "a"), ("b.rs", "b")])).is_empty());
+    }
+
     #[test]
     fn undoing_a_symlink_does_not_take_its_targets_permissions() {
         let root = TempDir::new("undo");

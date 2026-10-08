@@ -310,7 +310,7 @@
 
 * **Message:** `Lost connection to archbox`, followed by `The Agent stops the run once it notices`
 * **Meaning:** A run stops when its connection drops.
-* **Fix:** Check how it ended with `slingshot ps --all`. Use `slingshot attach` for work that must keep going.
+* **Fix:** Check how it ended with `slingshot ps --all`, where it shows as `Lost connection`. Use `slingshot attach` for work that must keep going.
 
 ### Command Not Found On The Agent
 

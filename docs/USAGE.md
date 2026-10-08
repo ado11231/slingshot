@@ -284,6 +284,7 @@ slingshot env remove .env
 
 * Stopping asks the job to finish, then forces it after five seconds.
 * Your files and build output are kept.
+* A finished run shows how it ended: `Completed`, `Failed` with its exit code, `Stopped` by `slingshot stop`, `Interrupted` by Ctrl C, or `Lost connection` when the connection dropped.
 
 ## The Menu Bar App
 

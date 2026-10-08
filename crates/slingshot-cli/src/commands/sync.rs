@@ -38,7 +38,7 @@ pub async fn sync(
                 Direction::Pull => transfer::pull(&mut opened, target, &local, &step).await,
             };
             outcome.map(|outcome| {
-                transfer::finish(step, &outcome, direction);
+                transfer::finish(step, &outcome, direction, &target.name);
                 report_kept(outcome.kept, &target.name, direction);
             })
         }

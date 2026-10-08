@@ -48,6 +48,9 @@ pub struct RemoteCommand {
     pub tty: bool,
     /// A port on the Agent to reach at the same port on this machine while the command runs.
     pub forward: Option<u16>,
+    /// Send the program's own output to `/dev/null` on the Agent. tmux draws through the
+    /// terminal it reads from, so for `attach` this hides only its `[detached]` line.
+    pub quiet: bool,
     pub program: String,
     pub args: Vec<String>,
 }
@@ -76,6 +79,7 @@ impl RemoteCommand {
             host_key_alias: Some(agent.host.clone()),
             tty: wants_terminal(),
             forward: None,
+            quiet: false,
             program,
             args,
         }
@@ -90,7 +94,13 @@ impl RemoteCommand {
     }
 
     fn command_line(&self) -> String {
-        join(std::iter::once(self.program.as_str()).chain(self.args.iter().map(|s| s.as_str())))
+        let line = join(
+            std::iter::once(self.program.as_str()).chain(self.args.iter().map(|s| s.as_str())),
+        );
+        match self.quiet {
+            true => format!("{line} >/dev/null"),
+            false => line,
+        }
     }
 
     /// SSH options and the destination, without any remote command.
@@ -368,6 +378,7 @@ mod tests {
             shared: None,
             tty: false,
             forward: None,
+            quiet: false,
             program: "echo".to_string(),
             args: args.iter().map(|s| s.to_string()).collect(),
         }
@@ -380,6 +391,14 @@ mod tests {
     #[test]
     fn quotes_nothing_when_unnecessary() {
         assert_eq!(cmd(&["hello"]), "echo hello");
+    }
+
+    /// The redirect is a fixed suffix, so a quiet command still quotes every argument.
+    #[test]
+    fn a_quiet_command_discards_only_its_own_output() {
+        let mut command = remote(&["a b", ">x"]);
+        command.quiet = true;
+        assert_eq!(command.command_line(), "echo 'a b' '>x' >/dev/null");
     }
 
     #[test]

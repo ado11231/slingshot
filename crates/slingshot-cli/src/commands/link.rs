@@ -6,7 +6,7 @@ use crate::project;
 use slingshot_core::config::{Agent, Config};
 use slingshot_core::keys as core_keys;
 use slingshot_core::preflight::{self, Check, State};
-use slingshot_core::presentation::{self, Style, Tone, home_path};
+use slingshot_core::presentation::{self, home_path};
 use slingshot_core::protocol::Joining;
 use slingshot_core::step;
 use slingshot_core::tunnel;
@@ -29,6 +29,7 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
         .collect();
     preflight::report(&problems);
 
+    presentation::section("Pairing");
     let reaching = step::start(format!("Reaching {host}"));
     if !preflight::is_listening(format!("{host}:{port}").parse()?) {
         reaching.clear();
@@ -95,7 +96,6 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
         presentation::detail("Addresses", paired.addresses.join(", "));
     }
     presentation::detail("Saved", home_path(&saved));
-    eprintln!();
 
     if let Err(error) = super::tools::offer(config.resolve(Some(&name))?).await {
         presentation::warning(format!(
@@ -107,11 +107,8 @@ pub async fn link(code: String, name: Option<String>) -> anyhow::Result<i32> {
             "Could not add {name} to the menu bar: {error:#}. Run slingshot menubar to try again"
         ));
     }
-    eprintln!();
-    eprintln!(
-        "  Try it: {}",
-        Style::stderr().paint("slingshot run uname -n", Tone::Info)
-    );
+    presentation::section("Ready");
+    presentation::detail("Try it", "slingshot run uname -n");
     eprintln!();
 
     Ok(0)

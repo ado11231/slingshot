@@ -85,7 +85,16 @@ const STOPPED: i32 = 130;
 /// with `lost`. When SSH exits 255 silently, a quick check tells a keepalive timeout
 /// apart from a command that really exited with 255.
 pub async fn interact(target: &Agent, remote: &RemoteCommand, lost: String) -> anyhow::Result<i32> {
-    let error = match remote.interactive().await {
+    settle(target, remote.interactive().await, lost).await
+}
+
+/// `interact` for a command that needs no input, with its output framed under the step.
+pub async fn framed(target: &Agent, remote: &RemoteCommand, lost: String) -> anyhow::Result<i32> {
+    settle(target, remote.framed().await, lost).await
+}
+
+async fn settle(target: &Agent, result: anyhow::Result<i32>, lost: String) -> anyhow::Result<i32> {
+    let error = match result {
         Ok(code) => return Ok(code),
         Err(error) => error,
     };

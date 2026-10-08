@@ -88,6 +88,7 @@ pub async fn offer(name: &str) -> anyhow::Result<()> {
     use slingshot_core::telemetry;
 
     let style = Style::stderr();
+    slingshot_core::presentation::section("Menu bar");
     match offer_for(
         find_app().is_some(),
         telemetry::is_installed("swift"),
@@ -104,7 +105,7 @@ pub async fn offer(name: &str) -> anyhow::Result<()> {
         }
         Offer::Ask => {
             eprintln!(
-                "\n  The menu bar app shows {name}'s CPU, RAM, and GPU, and notifies you when a run finishes."
+                "  The menu bar app shows {name}'s CPU, RAM, and GPU, and notifies you when a run finishes."
             );
             eprintln!(
                 "  {}",

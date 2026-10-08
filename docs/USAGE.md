@@ -114,6 +114,8 @@
 3. Once linked, the Client reaches the Agent from any network.
 4. Slingshot then offers to set up your tools on the Agent. See the next section.
 
+* Its output comes in sections: Pairing, Tools, Sign in, Menu bar, and Ready. A section with nothing to do is left out.
+
 * Each machine links under its own name, such as `MacBook-Pro-3f9c2a`, so two machines with the same hostname can use one Agent without replacing each other.
 * Linking an Agent again keeps the name it had. Machines linked before September 25, 2026 go by their hostname alone. To get a unique name, run `slingshot unlink`, then link again.
 
@@ -146,9 +148,9 @@
 
 1. Lists every command it will run on the Agent.
 2. Asks once: `Install them on archbox now? [Y/n]`.
-3. Runs them in your terminal, so you can type your password when `sudo` asks.
+3. Runs commands that need `sudo` in your terminal, so you can type your password. The rest, such as the Claude Code installer, run without one, and their output is shown dimmed under the step, so an installer cannot clear your screen.
 4. Checks the Agent again and says which tools were installed.
-5. Starts the sign in for Claude Code and Codex. Your accounts are never copied from the Client.
+5. Starts the sign in for Claude Code and Codex, unless they are already signed in. Your accounts are never copied from the Client.
 
 * For Codex, open the link it prints in a browser on the Client. Slingshot forwards port 1455 so the sign in can finish.
 * If Claude Code or Codex is already on the Agent but signed out, Slingshot names it and offers to sign in, after one yes.

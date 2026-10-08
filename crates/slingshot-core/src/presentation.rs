@@ -161,6 +161,12 @@ pub fn progress(text: impl std::fmt::Display) {
     eprintln!("{}", Style::stderr().status(text, Tone::Info));
 }
 
+/// A bold heading with a blank line above it, for a command that runs in stages, such as
+/// `link`, so each stage's lines read as one group.
+pub fn section(title: &str) {
+    eprintln!("\n{}", Style::stderr().heading(title));
+}
+
 /// A dim `label   value` line under a step, for facts worth keeping but not reading first.
 pub fn detail(label: &str, value: impl std::fmt::Display) {
     eprintln!("{}", Style::stderr().dim(row(label, value).trim_end()));

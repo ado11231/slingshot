@@ -281,6 +281,20 @@ pub fn found(output: &str) -> Vec<Tool> {
         .collect()
 }
 
+/// The commands that install `tool` here, leaving out those that need `sudo` without `admin`.
+pub fn install_commands(
+    tool: Tool,
+    manager: Option<&str>,
+    npm_writable: Option<bool>,
+    admin: bool,
+) -> Vec<String> {
+    tool.install(manager, npm_writable)
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|command| admin || !needs_admin(command))
+        .collect()
+}
+
 /// One script that installs `tools` in order, with a numbered heading before each. It keeps
 /// going after a failure, because the Agent is checked again afterwards to see what worked.
 /// Tools without a command are left out.
@@ -296,11 +310,7 @@ pub fn install_script(
     let planned: Vec<(Tool, Vec<String>)> = tools
         .iter()
         .filter_map(|tool| {
-            let commands: Vec<String> = tool
-                .install(manager, npm_writable)?
-                .into_iter()
-                .filter(|command| admin || !needs_admin(command))
-                .collect();
+            let commands = install_commands(*tool, manager, npm_writable, admin);
             (!commands.is_empty()).then_some((*tool, commands))
         })
         .collect();

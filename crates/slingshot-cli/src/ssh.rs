@@ -5,6 +5,7 @@ use crate::tunnel;
 use anyhow::Context;
 use shell_words::join;
 use slingshot_core::config;
+use slingshot_core::presentation::Style;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
@@ -202,17 +203,64 @@ impl RemoteCommand {
             }
         };
 
-        let code = status.code().unwrap_or(EXIT_SIGNALLED);
-        let messages = log.read();
-        match (code, messages.is_empty()) {
-            (EXIT_SSH_FAILED, false) if connection_lost(&messages) => {
-                Err(Disconnected::Certain.into())
+        ended(status.code().unwrap_or(EXIT_SIGNALLED), &log)
+    }
+
+    /// Run without a terminal, showing each line of output dimmed under a bar, so it reads
+    /// as part of the step around it and cannot clear the screen. Only for commands that
+    /// need no input, with their errors sent to standard output too.
+    pub async fn framed(&self) -> anyhow::Result<i32> {
+        use tokio::io::{AsyncBufReadExt, BufReader};
+
+        let log = SshLog::create()?;
+        let mut child = Command::new("ssh")
+            .arg("-E")
+            .arg(&log.0)
+            .args(self.to_ssh_args())
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true)
+            .spawn()
+            .context("Could not start ssh. Check that it is installed and on PATH")?;
+        let style = Style::stderr();
+        if let Some(stdout) = child.stdout.take() {
+            let mut reader = BufReader::new(stdout);
+            let mut line = Vec::new();
+            while reader.read_until(b'\n', &mut line).await? > 0 {
+                eprintln!(
+                    "  {}",
+                    style.dim(framed_line(&String::from_utf8_lossy(&line)))
+                );
+                line.clear();
             }
-            (EXIT_SSH_FAILED, true) => Err(Disconnected::Possible.into()),
-            _ => {
-                eprint!("{messages}");
-                Ok(code)
-            }
+        }
+        let status = child.wait().await.context("Waiting for ssh failed")?;
+        ended(status.code().unwrap_or(EXIT_SIGNALLED), &log)
+    }
+}
+
+/// One line of framed output. A progress bar redraws its line with carriage returns, so
+/// only what it drew last is kept.
+fn framed_line(line: &str) -> String {
+    let shown = line
+        .trim_end_matches(['\n', '\r'])
+        .rsplit('\r')
+        .next()
+        .unwrap_or("");
+    format!("│ {}", shown.trim_end())
+}
+
+/// The remote exit code, or `Disconnected` when ssh itself failed. ssh's own messages are
+/// shown only when they are not about a dropped connection.
+fn ended(code: i32, log: &SshLog) -> anyhow::Result<i32> {
+    let messages = log.read();
+    match (code, messages.is_empty()) {
+        (EXIT_SSH_FAILED, false) if connection_lost(&messages) => Err(Disconnected::Certain.into()),
+        (EXIT_SSH_FAILED, true) => Err(Disconnected::Possible.into()),
+        _ => {
+            eprint!("{messages}");
+            Ok(code)
         }
     }
 }
@@ -503,6 +551,13 @@ mod tests {
         assert_eq!(argv[at + 1], "1455:localhost:1455");
         assert!(argv.contains(&"ExitOnForwardFailure=yes".to_string()));
         assert_eq!(argv.last().unwrap(), "echo hi");
+    }
+
+    #[test]
+    fn framed_output_keeps_the_last_redraw_of_a_progress_line() {
+        assert_eq!(framed_line("Installing...\n"), "│ Installing...");
+        assert_eq!(framed_line(" 10%\r 55%\r100%  \n"), "│ 100%");
+        assert_eq!(framed_line("\n"), "│ ");
     }
 
     #[test]

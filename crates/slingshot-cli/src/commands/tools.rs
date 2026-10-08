@@ -21,6 +21,7 @@ pub async fn tools(agent: Option<String>) -> anyhow::Result<i32> {
 /// Compare both machines, list what the Agent lacks with the exact commands, and install
 /// after one yes. Without a terminal it only prints the list, because nobody can answer.
 pub async fn offer(target: &Agent) -> anyhow::Result<()> {
+    presentation::section("Tools");
     let checking = step::start(format!("Checking tools on {}", target.name));
     let before = match check(target).await {
         Ok(before) => before,
@@ -36,7 +37,7 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
     let offered = tools::missing(&here, &before.installed, &stacks);
     if offered.is_empty() {
         checking.done(format!("{} has every tool this machine uses", target.name));
-        return offer_sign_in(target, &before, &here, &[]).await;
+        return offer_sign_in(target, &before, &here, &[], true).await;
     }
     checking.warn(format!(
         "{} is missing {}",
@@ -64,7 +65,11 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
         presentation::warning("Run slingshot tools in a terminal to install them");
         return Ok(());
     }
-    if !presentation::confirm(format!("Install them on {} now?", target.name)).await? {
+    let them = match offered.len() {
+        1 => "it",
+        _ => "them",
+    };
+    if !presentation::confirm(format!("Install {them} on {} now?", target.name)).await? {
         eprintln!(
             "  {}",
             Style::stderr().dim("Run slingshot tools any time to do this later")
@@ -72,13 +77,32 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    announce("Installing on", target);
-    let remote = login_shell(target, &before.shell, script);
     let lost = format!(
         "Lost connection to {} while installing. Run slingshot tools again to see what finished",
         target.name
     );
-    crate::commands::run::interact(target, &remote, lost).await?;
+    let (with_sudo, without_sudo) = by_sudo(&offered, manager, before.npm_writable, admin);
+    let script = tools::install_script(&with_sudo, manager, before.npm_writable, admin);
+    if !script.is_empty() {
+        announce("Installing on", target);
+        let remote = login_shell(target, &before.shell, script);
+        crate::commands::run::interact(target, &remote, lost.clone()).await?;
+    }
+    for tool in without_sudo {
+        let commands = tools::install_commands(tool, manager, before.npm_writable, admin);
+        announce(&format!("Installing {} on", tool.name()), target);
+        let mut remote = login_shell(
+            target,
+            &before.shell,
+            format!(
+                "exec 2>&1\n{}\n{}",
+                tools::user_path_line(),
+                commands.join("\n")
+            ),
+        );
+        remote.tty = false;
+        crate::commands::run::framed(target, &remote, lost.clone()).await?;
+    }
 
     let after = check(target).await?;
     eprintln!();
@@ -99,12 +123,39 @@ pub async fn offer(target: &Agent) -> anyhow::Result<()> {
         );
     }
 
-    for tool in &offered {
-        if after.installed.contains(tool) {
-            sign_in(target, &after.shell, *tool).await?;
-        }
+    let installed: Vec<Tool> = offered
+        .iter()
+        .copied()
+        .filter(|tool| after.installed.contains(tool) && after.signed_out.contains(tool))
+        .collect();
+    if !installed.is_empty() {
+        presentation::section("Sign in");
     }
-    offer_sign_in(target, &after, &here, &offered).await
+    for tool in &installed {
+        sign_in(target, &after.shell, *tool).await?;
+    }
+    offer_sign_in(target, &after, &here, &offered, installed.is_empty()).await
+}
+
+/// Tools that need `sudo` install with a terminal, so a password can be typed. The rest
+/// need no input, so their output is framed under the step, where an installer that
+/// redraws the screen cannot wipe what came before. `sudo` ones go first, since a tool
+/// such as Codex needs Node.
+fn by_sudo(
+    offered: &[Tool],
+    manager: Option<&str>,
+    npm_writable: Option<bool>,
+    admin: bool,
+) -> (Vec<Tool>, Vec<Tool>) {
+    offered
+        .iter()
+        .copied()
+        .filter(|tool| !tools::install_commands(*tool, manager, npm_writable, admin).is_empty())
+        .partition(|tool| {
+            tools::install_commands(*tool, manager, npm_writable, admin)
+                .iter()
+                .any(|command| tools::needs_admin(command))
+        })
 }
 
 /// Tools this machine uses that are installed on the Agent but signed out, apart from
@@ -125,12 +176,16 @@ async fn offer_sign_in(
     agent: &AgentTools,
     here: &[Tool],
     skip: &[Tool],
+    heading: bool,
 ) -> anyhow::Result<()> {
     let waiting = waiting_for_sign_in(agent, here, skip);
     if waiting.is_empty() {
         return Ok(());
     }
     let names: Vec<&str> = waiting.iter().map(|tool| tool.name()).collect();
+    if heading {
+        presentation::section("Sign in");
+    }
     presentation::warning(format!(
         "{} not signed in on {}",
         match names.as_slice() {
@@ -170,7 +225,6 @@ async fn sign_in(target: &Agent, shell: &str, tool: Tool) -> anyhow::Result<()> 
     };
     let command =
         shell_words::join(std::iter::once(tool.program()).chain(sign_in.args.iter().copied()));
-    eprintln!();
     announce(&format!("Signing in to {} on", tool.name()), target);
     if sign_in.forward.is_some() {
         eprintln!(
@@ -189,11 +243,12 @@ async fn sign_in(target: &Agent, shell: &str, tool: Tool) -> anyhow::Result<()> 
         target.name
     );
     let code = crate::commands::run::interact(target, &remote, lost).await?;
-    if code != 0 {
-        presentation::warning(format!(
+    match code {
+        0 => presentation::success(format!("Signed in to {}", tool.name())),
+        _ => presentation::warning(format!(
             "Sign in to {} did not finish. Try again in slingshot attach with: {command}",
             tool.name()
-        ));
+        )),
     }
     Ok(())
 }
@@ -282,6 +337,18 @@ fn manual(manager: Option<&str>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tools_that_need_sudo_keep_the_terminal_and_the_rest_are_framed() {
+        let offered = [Tool::Docker, Tool::ClaudeCode];
+        let (with_sudo, without_sudo) = by_sudo(&offered, Some("pacman"), Some(false), true);
+        assert_eq!(with_sudo, [Tool::Docker]);
+        assert_eq!(without_sudo, [Tool::ClaudeCode]);
+
+        let (with_sudo, without_sudo) = by_sudo(&offered, Some("pacman"), Some(false), false);
+        assert!(with_sudo.is_empty());
+        assert_eq!(without_sudo, [Tool::ClaudeCode]);
+    }
 
     #[test]
     fn only_signed_out_tools_this_machine_uses_are_offered() {

@@ -45,17 +45,16 @@ pub async fn attach(
         style.dim("Detach with Ctrl B then D, or your tmux prefix then D")
     );
 
+    let label = bar_label(
+        &target.name,
+        route::resolve(target).name(),
+        &place,
+        style.colored(),
+    );
     let mut remote = RemoteCommand::to(
         target,
         session.tmux,
-        vec![
-            "-u".to_string(),
-            "-S".to_string(),
-            session.socket,
-            "attach-session".to_string(),
-            "-t".to_string(),
-            format!("={}", session.job.id),
-        ],
+        tmux_args(&session.socket, &session.job.id, &label, !session.created),
     );
     remote.tty = true;
     remote.quiet = true;
@@ -72,6 +71,56 @@ pub async fn attach(
     }
     Ok(code)
 }
+
+/// The bar at the bottom of a session, colored like a `▶` line. The route is the Client's
+/// to know, so it is set on every attach. `#` starts tmux formatting, so it is dropped.
+fn bar_label(agent: &str, route: &str, place: &str, color: bool) -> String {
+    let place = place.replace('#', "");
+    match color {
+        true => format!("#[fg=cyan]▶ {agent}#[default] via #[fg=cyan]{route}#[default] · {place}"),
+        false => format!("▶ {agent} via {route} · {place}"),
+    }
+}
+
+/// One tmux call that labels the session, clears the screen when returning to a session
+/// waiting at a shell prompt, and attaches. The clear is Ctrl L sent to the shell, so the
+/// old output moves into the scrollback, and a running program never receives it.
+/// Commands that act on a pane need the `=id:` target, and `attach-session` takes `=id`.
+fn tmux_args(socket: &str, id: &str, label: &str, returning: bool) -> Vec<String> {
+    let session = format!("={id}");
+    let pane = format!("{session}:");
+    let mut args: Vec<String> = [
+        "-u",
+        "-S",
+        socket,
+        "set-option",
+        "-t",
+        &pane,
+        "@slingshot",
+        label,
+    ]
+    .map(String::from)
+    .to_vec();
+    if returning {
+        args.extend(
+            [
+                ";",
+                "if-shell",
+                "-F",
+                "-t",
+                &pane,
+                AT_A_PROMPT,
+                &format!("send-keys -t {pane} C-l"),
+            ]
+            .map(String::from),
+        );
+    }
+    args.extend([";", "attach-session", "-t", &session].map(String::from));
+    args
+}
+
+/// True when the session's pane is running a shell rather than a program.
+const AT_A_PROMPT: &str = "#{m/r:^-?(ba|z|fi|da|k|tc|c)?sh$,#{pane_current_command}}";
 
 /// A session counts as left, rather than ended, unless the Agent answered and no longer lists
 /// it, because leaving with Ctrl B, D is the usual case.
@@ -215,6 +264,44 @@ mod tests {
         ));
         assert!(!still_running(Some(Response::Jobs(Vec::new())), "s1"));
         assert!(still_running(None, "s1"));
+    }
+
+    #[test]
+    fn the_bar_names_the_agent_route_and_place() {
+        assert_eq!(
+            bar_label("archbox", "local network", "app#1", false),
+            "▶ archbox via local network · app1"
+        );
+        assert_eq!(
+            bar_label("archbox", "iroh", "app", true),
+            "#[fg=cyan]▶ archbox#[default] via #[fg=cyan]iroh#[default] · app"
+        );
+    }
+
+    #[test]
+    fn only_a_returning_attach_clears_and_only_at_a_prompt() {
+        let fresh = tmux_args("/s", "j1", "L", false);
+        assert_eq!(
+            fresh,
+            [
+                "-u",
+                "-S",
+                "/s",
+                "set-option",
+                "-t",
+                "=j1:",
+                "@slingshot",
+                "L",
+                ";",
+                "attach-session",
+                "-t",
+                "=j1"
+            ]
+        );
+        let back = tmux_args("/s", "j1", "L", true);
+        assert!(back.contains(&AT_A_PROMPT.to_string()));
+        assert!(back.contains(&"send-keys -t =j1: C-l".to_string()));
+        assert_eq!(back.last().map(String::as_str), Some("=j1"));
     }
 
     #[test]

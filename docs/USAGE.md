@@ -215,10 +215,13 @@
 * Each project has one session, and the home folder has one session.
 * Inside a session:
 
-1. Scroll back through output with your trackpad or mouse.
-2. The bar at the bottom shows the Agent and the project, such as `▶ archbox · app`.
-3. To leave without stopping it, press Ctrl B, then D.
-4. To end it, type `exit`, or run `slingshot stop <id>` from the Client.
+1. Scroll back through output with your trackpad or mouse. Scrolling never moves the cursor. Press `q` to return to the bottom.
+2. Drag to select text. It stays highlighted in blue and is copied to your clipboard. Click anywhere, or press Esc or `q`, to clear it and type again.
+3. The bar at the bottom shows the Agent, the connection path, and the project, such as `▶ archbox via local network · app`.
+4. Returning to a session that waits at a prompt starts with a clear screen. Earlier output is still there when you scroll up.
+5. To clear the screen and all earlier output, press Ctrl B, then K.
+6. To leave without stopping it, press Ctrl B, then D.
+7. To end it, type `exit`, or run `slingshot stop <id>` from the Client.
 
 * Tools you run in a session, such as Claude Code, Codex, or Docker, must be installed on the Agent. `slingshot tools` installs them.
 

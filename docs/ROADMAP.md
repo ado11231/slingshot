@@ -21,7 +21,7 @@
 | 1 | Pairing, remote commands, and hardware details on a local network | Complete |
 | 2 | Project recognition, and keeping build output on the Agent | Replaced by phase 3, which kept both |
 | 3 | Source copies, sync, sessions, jobs, environment files, and live health | Complete |
-| 4 | Reaching the Agent from any network | Final testing |
+| 4 | Reaching the Agent from any network | Complete |
 | 5 | Menu bar app, notifications, and automatic port forwarding | In progress |
 | 6 | AI model tools, pairing across networks, and more platforms | Planned |
 | 7 | Installers, packages, and a public release | Planned |
@@ -63,8 +63,6 @@
 * `slingshot health --watch` refreshes live, with running jobs.
 * `slingshot unlink` removes this Client's key and environment files from the Agent.
 
-## In Progress
-
 ### Phase 4: Reaching The Agent From Any Network
 
 * **Built:**
@@ -76,9 +74,9 @@
 5. Error messages tell an Agent that is off apart from a Client that is no longer paired.
 6. `slingshot start` closes iroh cleanly when stopped with Ctrl C, when told to stop, or when its terminal closes, so Clients reconnect at once.
 
-* **Remaining:**
+* **Tested:** a connection lost for 4 minutes during a run over iroh ends the run with a clear message, and the Agent stops it. See the October 7, 2026 test record.
 
-1. Test a connection lost for more than 3 minutes during a build over iroh. A drop of about 15 seconds did not interrupt a run.
+## In Progress
 
 ### Phase 5: Polish
 
@@ -104,12 +102,21 @@
 18. The first `slingshot start` offers to start Slingshot by itself: a systemd user service with linger on Linux, and a launchd agent on macOS. `--boot` sets it up later, and `--remove` takes it away. A second `slingshot start` beside the service makes codes.
 19. An Agent with sleep turned off in systemd says so instead of warning that it may sleep.
 20. Leaving `slingshot attach` pulls the Agent's edits back. A conflict is a warning, and a dropped connection does not pull.
+21. Sessions get `~/.local/bin` and `~/.cargo/bin` on PATH, as runs do, so a tool the tools step installed is found inside `attach`.
+22. `python3 -m venv .venv` works on the Agent. `.venv` stays in the Agent's copy and is never copied.
+23. Runs start in `~/Slingshot/<project>`, so Docker Compose names each project after itself instead of `source`.
+24. `slingshot start` warns when Docker is installed but the account cannot use it, with the fix.
+25. `attach` and `run` work from terminals the Agent may not know, such as Kitty.
+26. Leaving a session says whether it was left or ended, and names the edits brought back.
+27. Problem messages put what happened on the first line, and each fix on its own dimmed line.
+28. `link` and `tools` show their output in sections. Installers that need no `sudo` run without a terminal, with their output framed under the step.
+29. `ps --all` shows `Lost connection` for a run cut off by the network.
 
 * **Remaining:**
 
 1. Automatic port forwarding, so the Agent's port 3000 appears at `localhost:3000` on the Client.
 2. Notifications when a server is ready and when a job waits for input.
-3. See the new tools output, with a tool actually missing, on real machines.
+3. The rest of the fresh install findings: sessions that feel local (#87), sync case clashes and keeping one side (#89), the menu bar route (#90), small output fixes (#93), one uninstall command (#91), and the README install steps split by machine (#92).
 
 ## Planned
 
@@ -293,3 +300,35 @@
 1. In the session, a file was written on archbox. After Ctrl B then D, `Retrieved 1 change  0.3s` printed, and the file was on the Mac.
 2. The same file was then changed on both machines during a session. Leaving printed `Did not pull slingshot: These paths changed differently on this machine and archbox`. Each machine kept its own version.
 3. Not tested: a coding agent's edits, and a dropped connection.
+
+### Fresh Install And Full Test: October 7, 2026
+
+* Both machines were cleaned and installed again from the README, from master b0d2210. The Agent was a new account, `slingtest`, with no `sudo`. Full results are on issue #56.
+
+1. Removing Slingshot with `unlink`, `menubar --remove`, `start --remove`, and `cargo uninstall` left data folders and keys on both machines (#91).
+2. The Mac install took 2m 43s. `link` paired, installed Claude Code, signed in to Claude Code and Codex, and built the menu bar app in one flow.
+3. A Rust release build took 2.6s on archbox and 7.3s on the Mac. `npm install` and a Vite build kept `node_modules` and `dist` on the Agent. `.env` never synced.
+4. `python3 -m venv .venv` failed, because Python refuses a linked `.venv`. Fixed in #83.
+5. `npm run dev` in `attach` answered `curl localhost:3000` on the Agent, the baseline for port forwarding (#9).
+6. Claude Code was not found inside `attach` until PATH was fixed in #82. Claude Code and Codex edits came back on leaving.
+7. A conflict was reported and nothing was lost. A file named `notes.md` beside `NOTES.md` gave a wrong message (#89).
+8. Docker failed until the account joined the `docker` group, with no warning (#85). Compose named every project `source` (#84). After that, build, run, and Compose with Postgres worked.
+9. `attach` failed from Kitty (#86).
+10. After a reboot with nobody logged in, archbox answered in under a minute.
+11. Runs worked over the local network, the tailnet, and iroh with Tailscale off. With the Mac offline for 4 minutes during a run over iroh, the run ended with a lost connection message and the Agent stopped it.
+12. Installing again while the menu bar ran switched it to the new program within 5 seconds.
+13. Not fixed yet: the menu bar kept the iroh route after the Mac returned to the home network (#90).
+
+### Fixes And Output: October 7, 2026
+
+* Both machines ran each branch, built on archbox from the Mac with `slingshot run`.
+
+1. In a new Python project, `python3 -m venv .venv`, `pip install`, and a run worked, and the venv survived later syncs.
+2. A run gave the Compose project name `compose-app`, also from a subfolder.
+3. `slingshot start` printed `Docker available` beside the other checks. The warning itself is covered by a unit test.
+4. With `TERM=xterm-kitty`, `attach` opened, and the session saw the Client as `xterm-256color`. `attach` from real Kitty worked.
+5. Leaving a session printed `Left the session on archbox. It keeps running` and named the edits brought back. `exit` printed `The session on archbox ended`.
+6. A real conflict printed one line with the file, then dimmed fix lines.
+7. A full `link` printed Pairing, Tools, Menu bar, and Ready sections. `slingshot tools` reinstalled Claude Code with its output framed, and did not sign in again.
+8. Killing a run's connection showed `Lost connection` in `ps --all`, and Ctrl C showed `Interrupted`.
+9. Not tested on real machines: the sessions PATH fix on a fresh account, since `ado` already had those folders on PATH.

@@ -13,6 +13,13 @@ fn private_key_path() -> anyhow::Result<PathBuf> {
     Ok(ssh_dir()?.join(KEY_NAME))
 }
 
+/// Slingshot's private and public key files, whether or not they exist.
+pub fn files() -> anyhow::Result<[PathBuf; 2]> {
+    let private = private_key_path()?;
+    let public = private.with_extension("pub");
+    Ok([private, public])
+}
+
 /// Find slingshot's key, creating it the first time. Also says whether it was just made, so
 /// `link` can announce a new key with its path, because a tool that quietly makes keys cannot
 /// be audited.

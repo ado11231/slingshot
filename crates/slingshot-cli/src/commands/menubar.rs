@@ -211,13 +211,10 @@ fn cargo_build(program: &std::path::Path) -> bool {
         .any(|pair| pair[0] == "target" && (pair[1] == "debug" || pair[1] == "release"))
 }
 
-/// Take the app out of login items, then delete it, its build folder, and its settings.
-/// Only the app itself can leave login items, so it is started once with `--remove`.
+/// List what the menu bar app keeps, ask, then remove it with `remove_app`.
 #[cfg(target_os = "macos")]
 async fn uninstall() -> anyhow::Result<i32> {
-    use anyhow::Context;
     use slingshot_core::presentation::{self, home_path};
-    use std::fs;
 
     let Some(app) = find_app() else {
         presentation::success("The menu bar app is not installed");
@@ -237,13 +234,42 @@ async fn uninstall() -> anyhow::Result<i32> {
     if !slingshot_core::presentation::confirm("Remove the menu bar app?".to_string()).await? {
         return Ok(0);
     }
+    remove_app(&app).await?;
+    presentation::success("Removed the menu bar app");
+    Ok(0)
+}
 
+/// The installed app, if there is one, for `slingshot uninstall` to list.
+#[cfg(target_os = "macos")]
+pub fn installed() -> Option<std::path::PathBuf> {
+    find_app()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn installed() -> Option<std::path::PathBuf> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
+pub async fn remove_app(_app: &std::path::Path) -> anyhow::Result<()> {
+    Ok(())
+}
+
+/// Quit the app, take it out of login items, and delete it, its build folder, and its
+/// settings, without asking. Callers ask first. Only the app itself can leave login items,
+/// so it is started once with `--remove`.
+#[cfg(target_os = "macos")]
+pub async fn remove_app(app: &std::path::Path) -> anyhow::Result<()> {
+    use anyhow::Context;
+    use std::fs;
+
+    let source = crate::project::client_root()?.join("menubar");
     tokio::task::spawn_blocking(quit_running_app)
         .await
         .context("Stopping the menu bar app stopped unexpectedly")?;
     let left = std::process::Command::new("open")
         .args(["-n", "-W"])
-        .arg(&app)
+        .arg(app)
         .args(["--args", "--remove"])
         .status()
         .context("Could not start open")?;
@@ -251,7 +277,7 @@ async fn uninstall() -> anyhow::Result<i32> {
         left.success(),
         "Could not take the app out of login items. Remove Slingshot in System Settings, then General, then Login Items"
     );
-    fs::remove_dir_all(&app).with_context(|| {
+    fs::remove_dir_all(app).with_context(|| {
         format!(
             "Could not delete {}. Move it to the Trash from Finder",
             app.display()
@@ -262,8 +288,7 @@ async fn uninstall() -> anyhow::Result<i32> {
             .with_context(|| format!("Could not delete {}", source.display()))?;
     }
     let _ = defaults(&["delete", BUNDLE_ID]);
-    presentation::success("Removed the menu bar app");
-    Ok(0)
+    Ok(())
 }
 
 #[cfg(target_os = "macos")]

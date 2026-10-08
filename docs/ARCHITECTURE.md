@@ -450,6 +450,7 @@ slingshot/
 | --- | --- | --- |
 | `link.rs` | `slingshot link` | `client`, `keys`, `project`, `menubar`, `tools` |
 | `tools.rs` | `slingshot tools`, and the tools step at the end of `link` | `client`, `project`, `route`, `ssh`, `run` |
+| `uninstall.rs` | `slingshot uninstall`: the Client's settings, key, menu bar app, and links | `keys`, `menubar`, `unlink` |
 | `unlink.rs` | `slingshot unlink` | `client`, `project`, `ssh` |
 | `run.rs` | `slingshot run` | `client`, `project`, `route`, `ssh`, `transfer` |
 | `attach.rs` | `slingshot attach` | `client`, `project`, `route`, `ssh`, `transfer`, `run` |

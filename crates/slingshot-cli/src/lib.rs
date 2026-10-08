@@ -102,6 +102,11 @@ enum Commands {
     #[command(about = "Remove this machine's access and environment files from an Agent")]
     Unlink,
 
+    #[command(
+        about = "Remove everything Slingshot keeps on this machine, after listing it and asking"
+    )]
+    Uninstall,
+
     #[command(about = "Install the developer tools this machine uses on the Agent, after asking")]
     Tools,
 
@@ -260,6 +265,7 @@ pub async fn run() {
         }
         Commands::Link { code, name } => commands::link::link(code, name).await,
         Commands::Unlink => commands::unlink::unlink(cli.agent).await,
+        Commands::Uninstall => commands::uninstall::uninstall().await,
         Commands::Tools => commands::tools::tools(cli.agent).await,
         Commands::Run { cmd } => commands::run::run(cli.agent, cmd).await,
         Commands::Attach { path } => commands::attach::attach(cli.agent, path).await,

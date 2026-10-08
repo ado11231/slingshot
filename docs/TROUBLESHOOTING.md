@@ -500,8 +500,20 @@
 
 ### Job Still Running
 
-* **Meaning:** `slingshot unlink` will not run while a job is active.
-* **Fix:** Stop each job with `slingshot stop <id>`, then unlink.
+* **Meaning:** `slingshot unlink` will not run while a job is active. `slingshot uninstall` stops before removing anything else, with `Nothing else was removed`.
+* **Fix:** Stop each job with `slingshot stop <id>`, then unlink or uninstall again.
+
+### Uninstall Needs A Terminal
+
+* **Message:** `Run slingshot uninstall in a terminal to confirm, since it deletes files`
+* **Meaning:** It asks before deleting, and a script cannot answer.
+* **Fix:** Run it in a terminal window.
+
+### Could Not Remove A File
+
+* **Message:** `Could not remove ... Delete it by hand`
+* **Meaning:** A file or folder could not be deleted, for example because of its permissions.
+* **Fix:** Delete the named path yourself, then run `slingshot uninstall` again to finish.
 
 ## Getting Help
 

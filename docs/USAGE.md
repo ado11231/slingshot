@@ -316,7 +316,7 @@ slingshot menubar --remove
 
 ### What It Shows
 
-* Click the icon to open the panel. It shows the Agent, how it is connected, and four sections:
+* Click the icon to open the panel. It shows the Agent, how it is connected, and four sections. When a better connection comes back, such as the home network after a phone hotspot, the panel moves to it within about a minute, without showing the Agent as offline.
 
 | Section | Shows |
 | --- | --- |

@@ -32,11 +32,9 @@ pub async fn unlink(agent: Option<String>) -> anyhow::Result<i32> {
     )
     .await
     {
-        Ok(Response::Unlinked { environment_files }) => cleaning.done(format!(
-            "Removed {} on {}",
-            presentation::plural(environment_files, "environment file"),
-            target.name
-        )),
+        Ok(Response::Unlinked { environment_files }) => {
+            cleaning.done(removed_line(environment_files, &target.name))
+        }
         Ok(_) => return Err(crate::client::unexpected()),
         Err(error) if error.downcast_ref::<Refused>().is_some() => {
             anyhow::bail!("{error:#}. Nothing was unlinked")
@@ -80,7 +78,14 @@ pub async fn unlink(agent: Option<String>) -> anyhow::Result<i32> {
         "Kept",
         format!("source copies and backups on {}", target.name),
     );
-    presentation::detail("Saved", presentation::home_path(&saved));
+    presentation::detail(
+        "Config",
+        format!(
+            "{}, without {}",
+            presentation::home_path(&saved),
+            target.name
+        ),
+    );
     if !complete {
         presentation::warning(
             "Remote cleanup did not finish. Pair again and unlink once the Agent is reachable to finish it",
@@ -88,6 +93,16 @@ pub async fn unlink(agent: Option<String>) -> anyhow::Result<i32> {
     }
 
     Ok(0)
+}
+
+fn removed_line(environment_files: usize, agent: &str) -> String {
+    match environment_files {
+        0 => format!("No environment files to remove on {agent}"),
+        count => format!(
+            "Removed {} on {agent}",
+            presentation::plural(count, "environment file")
+        ),
+    }
 }
 
 /// A small shell script that rewrites authorized_keys without our line. It writes
@@ -102,4 +117,21 @@ fn removal_script(marker: &str) -> String {
          t=$(mktemp) && grep -F -v -e {pattern} \"$f\" > \"$t\"; \
          cat \"$t\" > \"$f\" && rm -f \"$t\""
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nothing_to_remove_is_said_plainly() {
+        assert_eq!(
+            removed_line(0, "archbox"),
+            "No environment files to remove on archbox"
+        );
+        assert_eq!(
+            removed_line(2, "archbox"),
+            "Removed 2 environment files on archbox"
+        );
+    }
 }

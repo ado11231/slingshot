@@ -18,7 +18,7 @@ use std::path::PathBuf;
 
 /// Global options precede run so the remote command can receive its own flags.
 #[derive(Parser)]
-#[command(name = "slingshot", version, about = "Use the CPU, RAM, and GPU of another machine from this one", long_about = None)]
+#[command(name = "slingshot", version = env!("SLINGSHOT_VERSION"), about = "Use the CPU, RAM, and GPU of another machine from this one", long_about = None)]
 struct Cli {
     /// Control terminal colors.
     #[arg(long, global = true, value_parser = ["auto", "always", "never"], default_value = "auto")]
@@ -177,12 +177,12 @@ enum EnvAction {
     #[command(about = "Store a local environment file for this project on the Agent")]
     Add {
         /// The local file to upload. Its contents are never printed.
-        #[arg(long)]
         file: PathBuf,
 
-        /// Where it appears in the Agent copy, such as .env or api/.env.local.
+        /// Where it appears in the Agent copy, such as .env or api/.env.local. Defaults to
+        /// the file's own place in the project.
         #[arg(long)]
-        target: String,
+        target: Option<String>,
 
         /// Replace an existing file at the same target.
         #[arg(long)]
@@ -451,7 +451,6 @@ mod tests {
             "slingshot",
             "env",
             "add",
-            "--file",
             "local.env",
             "--target",
             "api/.env",
@@ -462,6 +461,13 @@ mod tests {
             cli.command,
             Commands::Env {
                 action: EnvAction::Add { replace: true, .. }
+            }
+        ));
+        let cli = Cli::try_parse_from(["slingshot", "env", "add", ".env"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Commands::Env {
+                action: EnvAction::Add { target: None, .. }
             }
         ));
         assert!(Cli::try_parse_from(["slingshot", "stop"]).is_err());

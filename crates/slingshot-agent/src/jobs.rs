@@ -229,6 +229,8 @@ fn tmux_config(shell: &str, terminal: &str) -> String {
         WHEEL_DOWN.to_string(),
         "bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-no-clear".to_string(),
         "bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-no-clear".to_string(),
+        "bind -T copy-mode MouseDown1Pane select-pane \\; send-keys -X cancel".to_string(),
+        "bind -T copy-mode-vi MouseDown1Pane select-pane \\; send-keys -X cancel".to_string(),
         "bind k send-keys -R \\; clear-history \\; send-keys C-l".to_string(),
         "set -g status-style \"bg=default,fg=colour245\"".to_string(),
         "set -g status-left-length 80".to_string(),
@@ -619,6 +621,7 @@ mod tests {
             WHEEL_DOWN,
             "bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-no-clear",
             "bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-no-clear",
+            "bind -T copy-mode MouseDown1Pane select-pane \\; send-keys -X cancel",
             "bind k send-keys -R \\; clear-history \\; send-keys C-l",
         ] {
             assert!(

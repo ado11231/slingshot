@@ -239,13 +239,15 @@
 | `slingshot sync --pull` | Copies changes made on the Agent back to you. |
 | `slingshot sync --check` | Shows what a sync would change, without changing anything. |
 | `slingshot sync --pull --check` | Shows what a pull would change, without changing anything. |
+| `slingshot sync --overwrite` | Settles conflicts with this machine's version, after listing them and asking once. |
+| `slingshot sync --pull --overwrite` | Settles conflicts with the Agent's version, the same way. |
 
 * Syncing works while a session is open, so you can pull a coding agent's edits back without stopping it.
 * **Edits made on only one machine are kept.** A normal sync leaves an edit made only on the Agent alone, and tells you so you can pull it.
-* **A conflict stops the sync.** If a file changed differently on both machines, nothing is copied. To fix it:
+* **A conflict stops the sync.** If a file changed differently on both machines, nothing is copied. To fix it, either:
 
-1. Make each listed file match on both machines, or undo one of the edits.
-2. Run the sync again.
+1. Keep one side's version with `slingshot sync --overwrite` or `slingshot sync --pull --overwrite`. The machine whose file is replaced keeps a backup of it.
+2. Or make each listed file match on both machines by hand, then run the sync again.
 
 ## Environment Files
 

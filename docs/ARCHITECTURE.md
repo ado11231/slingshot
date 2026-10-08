@@ -238,7 +238,7 @@ sequenceDiagram
 1. Each machine lists its source files, with a fingerprint of each file's contents.
 2. Each list is compared with the baseline, the last version both machines agreed on.
 3. A file changed only on the Client is sent. A file changed only on the Agent is kept.
-4. A file changed differently on both machines is a **conflict**. The sync stops, nothing is overwritten, and Slingshot never picks a side.
+4. A file changed differently on both machines is a **conflict**. The sync stops and nothing is overwritten. Slingshot never picks a side by itself: `--overwrite` settles the listed conflicts with the sending side's version, only after the owner sees them and agrees, and the Agent accepts only the files the Client names.
 5. `rsync` copies only the changed files into a staging folder.
 6. The receiving side checks every staged file, then applies them all at once. If anything fails, it restores the previous state.
 

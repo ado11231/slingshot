@@ -394,14 +394,18 @@ slingshot menubar --remove
 
 ## Remove Slingshot
 
-1. Stop any running jobs with `slingshot stop <id>`. `unlink` will not run while a job is active.
-2. On the Client, run:
+* To stop using one Agent, run `slingshot unlink` on the Client. It removes this machine's key and environment files from the Agent, and forgets it. Project copies on the Agent are kept.
+* To remove Slingshot from the Client completely:
+
+1. Stop any running jobs with `slingshot stop <id>`. Unlinking will not run while a job is active.
+2. Run:
 
    ```sh
-   slingshot unlink
+   slingshot uninstall
    ```
 
-3. This removes this machine's key and environment files from the Agent, and forgets the Agent.
+3. It lists every linked Agent, the menu bar app, its settings, and its key, then asks once. Enter keeps everything, and only `y` removes it.
+4. It unlinks each Agent, then removes the rest. An Agent it cannot reach is reported with the line to delete there by hand.
+5. Remove the program itself with `cargo uninstall slingshot-cli`.
 
-* Project copies on the Agent are kept.
 * To stop the Agent itself, run `slingshot start --remove` on the Agent if it starts by itself. Otherwise press Ctrl C where `slingshot start` is running.

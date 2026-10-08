@@ -255,15 +255,15 @@
 * Add them on purpose instead. They are stored on the Agent outside the project copy, and placed where you choose when your command runs.
 
 ```sh
-slingshot env add --file .env --target .env
+slingshot env add .env
 slingshot env list
 slingshot env remove .env
 ```
 
 | Option For `env add` | Effect |
 | --- | --- |
-| `--file <file>` | The file on this machine to upload. Its contents are never printed. |
-| `--target <path>` | Where it appears in the Agent's copy, such as `.env` or `api/.env.local`. |
+| `<file>` | The file on this machine to upload. Its contents are never printed. |
+| `--target <path>` | Where it appears in the Agent's copy, such as `.env` or `api/.env.local`. Without it, the file keeps its place in the project, so `slingshot env add api/.env.local` fills `api/.env.local`. |
 | `--replace` | Replace a file already stored at that target. |
 
 * The target must be an environment file name, such as `.env`, `.env.local`, `prod.env`, or `.envrc`.

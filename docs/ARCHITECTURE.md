@@ -428,6 +428,7 @@ slingshot/
 | `lib.rs` | Reads the command line with `clap`, calls the matching command, and defines the hidden `internal-` helpers. | every command; Agent `lib`, `runner`, `service` | `main`, `bin/sling` |
 | `main.rs` | The `slingshot` program. Calls `lib`. | `lib` | none, it is the entry point |
 | `bin/sling.rs` | The `sling` program, the same as `slingshot` under a shorter name. Calls `lib`. | `lib` | none, it is an entry point |
+| `build.rs` | Puts the commit the program was built from into `--version`, using `git` when it is there. | `git` | `lib` |
 | `client.rs` | The pairing connection, and the `Control` connection over `ssh`. | `route`, `ssh`, `tunnel` | `transfer`, `watch`, most commands |
 | `route.rs` | Chooses the path: local network, tailnet, or iroh. | none | `client`, `ssh`, `transfer`, `watch`, `run`, `attach` |
 | `ssh.rs` | Builds every `ssh` call, with safe quoting and a shared connection. | `route`, `tunnel` | `client`, `run`, `attach`, `unlink` |

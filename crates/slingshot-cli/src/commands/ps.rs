@@ -39,8 +39,11 @@ pub fn width() -> Option<usize> {
         .map(|(columns, _)| usize::from(columns))
 }
 
+/// The state column fits its longest label, `Lost connection`.
+const STATE_WIDTH: usize = 15;
+
 /// Everything before the command column: the indent and five columns with their gaps.
-const BEFORE_COMMAND: usize = 2 + 8 + 2 + 7 + 2 + 12 + 2 + 16 + 2 + 9 + 2;
+const BEFORE_COMMAND: usize = 2 + 8 + 2 + 7 + 2 + STATE_WIDTH + 2 + 16 + 2 + 9 + 2;
 
 pub async fn stop(agent: Option<String>, id: String) -> anyhow::Result<i32> {
     let config = Config::load()?;
@@ -93,7 +96,7 @@ pub fn render(
         return output;
     }
     let header = format!(
-        "{:<8}  {:<7}  {:<15}  {:<16}  {:<9}  {}",
+        "{:<8}  {:<7}  {:<STATE_WIDTH$}  {:<16}  {:<9}  {}",
         "ID", "KIND", "STATE", "PROJECT", "STARTED", "COMMAND"
     );
     output.push_str(&format!("  {}\n", style.dim(header)));
@@ -118,8 +121,8 @@ pub fn render(
             storage::short_id(&job.id),
             kind,
             match tone {
-                Some(tone) => style.paint(format!("{state:<15}"), tone),
-                None => format!("{state:<15}"),
+                Some(tone) => style.paint(format!("{state:<STATE_WIDTH$}"), tone),
+                None => format!("{state:<STATE_WIDTH$}"),
             },
             project,
             ago(now.saturating_sub(job.started)),
@@ -230,6 +233,17 @@ mod tests {
     fn an_empty_list_explains_itself() {
         let text = render("archbox", &[], false, 0, None, Style::new(false));
         assert!(text.contains("Nothing running. See finished jobs with slingshot ps --all"));
+    }
+
+    #[test]
+    fn every_row_fits_the_terminal() {
+        let mut lost = job(JobKind::Run, JobState::Interrupted, 1000);
+        lost.command = "npm run build -- --mode production --watch --verbose".into();
+        lost.exit_code = Some(141);
+        let text = render("archbox", &[lost], true, 1010, Some(80), Style::new(false));
+        for line in text.lines() {
+            assert!(line.chars().count() <= 80, "{line}");
+        }
     }
 
     #[test]

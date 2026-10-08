@@ -377,19 +377,45 @@ impl std::fmt::Display for Conflicts {
 impl std::error::Error for Conflicts {}
 
 fn refuse_conflicts(plan: &Plan, agent: &str) -> anyhow::Result<()> {
-    if plan.conflicts.is_empty() {
-        return Ok(());
+    match plan.conflicts.is_empty() {
+        true => Ok(()),
+        false => Err(Conflicts(conflict_message(&plan.conflicts, agent)).into()),
     }
-    let listed: Vec<String> = plan
-        .conflicts
-        .iter()
-        .map(|name| format!("  {name}"))
-        .collect();
-    Err(Conflicts(format!(
-        "These paths changed differently on this machine and {agent}:\n{}\nNothing was changed. Make each path match on both machines, or undo one side's edit, then sync again. Compare with slingshot sync --check and slingshot sync --pull --check",
-        listed.join("\n")
-    ))
-    .into())
+}
+
+/// What changed on both sides, then the files, then how to look and what to do.
+fn conflict_message(paths: &[String], agent: &str) -> String {
+    let (headline, fix) = match paths {
+        [only] => (only.clone(), "make the file match on both"),
+        _ => (
+            presentation::plural(paths.len(), "file"),
+            "make each file match on both",
+        ),
+    };
+    let mut lines = vec![format!(
+        "{headline} changed on both this machine and {agent}"
+    )];
+    if paths.len() > 1 {
+        lines.extend(named(paths).into_iter().map(|name| format!("  {name}")));
+    }
+    lines.push("  Nothing was changed on either machine.".to_string());
+    lines.push(
+        presentation::row(
+            "Compare",
+            "slingshot sync --check, then slingshot sync --pull --check",
+        )
+        .trim_end()
+        .to_string(),
+    );
+    lines.push(
+        presentation::row(
+            "Fix",
+            format!("{fix}, or undo one side's edit, then sync again"),
+        )
+        .trim_end()
+        .to_string(),
+    );
+    lines.join("\n")
 }
 
 fn regular_files(plan: &Plan, sender: &Manifest) -> Vec<String> {
@@ -588,6 +614,25 @@ mod tests {
     }
 
     #[test]
+    fn a_conflict_says_what_happened_first_then_how_to_fix_it() {
+        let one = conflict_message(&["NOTES.md".to_string()], "archbox");
+        assert_eq!(
+            one.lines().collect::<Vec<_>>(),
+            [
+                "NOTES.md changed on both this machine and archbox",
+                "  Nothing was changed on either machine.",
+                "  Compare      slingshot sync --check, then slingshot sync --pull --check",
+                "  Fix          make the file match on both, or undo one side's edit, then sync again",
+            ]
+        );
+        let many = conflict_message(&["a.rs".to_string(), "b.rs".to_string()], "archbox");
+        assert!(
+            many.starts_with("2 files changed on both this machine and archbox\n  a.rs\n  b.rs\n")
+        );
+        assert!(many.contains("make each file match on both"));
+    }
+
+    #[test]
     fn a_pull_names_five_paths_then_sums_up_the_rest() {
         let paths: Vec<String> = (1..=7).map(|n| format!("f{n}.rs")).collect();
         assert_eq!(
@@ -665,7 +710,8 @@ mod tests {
         let error = refuse_conflicts(&plan, "archbox").unwrap_err();
         assert!(error.downcast_ref::<Conflicts>().is_some());
         let error = error.to_string();
-        assert!(error.contains("  src/main.rs"));
+        assert!(error.starts_with("src/main.rs changed on both this machine and archbox"));
         assert!(error.contains("Nothing was changed"));
+        assert!(error.contains("then sync again"));
     }
 }

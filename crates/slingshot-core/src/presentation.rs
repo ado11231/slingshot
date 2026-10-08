@@ -92,6 +92,8 @@ impl Style {
         }
     }
 
+    /// A symbol and the first line, which says what happened. Any later lines are the
+    /// details and fixes under it, dimmed so the first line is what the eye finds.
     pub fn status(self, text: impl std::fmt::Display, tone: Tone) -> String {
         let label = match tone {
             Tone::Good => "✓",
@@ -99,7 +101,14 @@ impl Style {
             Tone::Error => "✗",
             Tone::Info => "▶",
         };
-        format!("{} {text}", self.paint(label, tone))
+        let text = text.to_string();
+        let mut lines = text.lines();
+        let mut shown = format!("{} {}", self.paint(label, tone), lines.next().unwrap_or(""));
+        for line in lines {
+            shown.push('\n');
+            shown.push_str(&self.dim(line));
+        }
+        shown
     }
 }
 
@@ -189,6 +198,19 @@ fn accepted(answer: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_first_line_of_a_status_stands_out() {
+        let text = "Lost connection to archbox\n  See how      slingshot ps --all";
+        assert_eq!(
+            Style::new(false).status(text, Tone::Error),
+            "✗ Lost connection to archbox\n  See how      slingshot ps --all"
+        );
+        assert_eq!(
+            Style::new(true).status(text, Tone::Error),
+            "\x1b[31m✗\x1b[0m Lost connection to archbox\n\x1b[2m  See how      slingshot ps --all\x1b[0m"
+        );
+    }
 
     #[test]
     fn enter_and_yes_accept_and_anything_else_declines() {

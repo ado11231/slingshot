@@ -369,8 +369,8 @@
 * **Fix:**
 
 1. Compare both sides with `slingshot sync --check` and `slingshot sync --pull --check`.
-2. Make each listed file match on both machines, or undo one edit.
-3. Run the sync again.
+2. To keep this machine's version, run `slingshot sync --overwrite`. To keep the Agent's, run `slingshot sync --pull --overwrite`. Both list the files and ask first, and the replaced files are backed up.
+3. Or make each listed file match on both machines by hand, then run the sync again.
 
 ### Names Differ Only In Case
 

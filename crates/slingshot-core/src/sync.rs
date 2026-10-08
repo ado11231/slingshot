@@ -55,6 +55,21 @@ pub fn plan(base: &Manifest, sender: &Manifest, receiver: &Manifest) -> Plan {
     result
 }
 
+/// Settle the conflicts in `allowed` in the sender's favor, as the owner chose with
+/// `--overwrite`. The receiver keeps a backup of each file it replaces, like any change.
+pub fn overwrite(mut plan: Plan, sender: &Manifest, allowed: &[String]) -> Plan {
+    let (replaced, left): (Vec<String>, Vec<String>) = std::mem::take(&mut plan.conflicts)
+        .into_iter()
+        .partition(|name| allowed.contains(name));
+    for name in replaced {
+        record(&mut plan.baseline, &name, sender.get(&name));
+        plan.changes.push(name);
+    }
+    plan.changes.sort();
+    plan.conflicts = left;
+    plan
+}
+
 /// Pairs of paths that differ only in case, which a disk that ignores case, such as a Mac's
 /// by default, cannot hold side by side.
 pub fn case_clashes(manifest: &Manifest) -> Vec<(String, String)> {
@@ -524,6 +539,21 @@ mod tests {
     /// An interrupted step can leave a symlink where a regular file used to be. Reading
     /// the destination's permissions must not follow that link, or the restored file
     /// inherits the mode of whatever the link pointed at, possibly outside the project.
+    #[test]
+    fn overwriting_settles_only_the_chosen_conflicts_for_the_sender() {
+        let base = manifest(&[("a.rs", "0"), ("b.rs", "0")]);
+        let sender = manifest(&[("a.rs", "mine"), ("b.rs", "mine")]);
+        let receiver = manifest(&[("a.rs", "theirs"), ("b.rs", "theirs")]);
+        let settled = overwrite(
+            plan(&base, &sender, &receiver),
+            &sender,
+            &["a.rs".to_string()],
+        );
+        assert_eq!(settled.changes, ["a.rs"]);
+        assert_eq!(settled.conflicts, ["b.rs"]);
+        assert_eq!(settled.baseline.get("a.rs"), sender.get("a.rs"));
+    }
+
     #[test]
     fn names_that_differ_only_in_case_are_found() {
         let names = manifest(&[("NOTES.md", "a"), ("notes.md", "b"), ("src/main.rs", "c")]);

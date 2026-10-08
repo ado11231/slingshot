@@ -29,7 +29,7 @@ pub async fn run(agent: Option<String>, cmd: Vec<String>) -> anyhow::Result<i32>
         Some(local) => {
             let mut opened = transfer::open(target, local).await?;
             let step = transfer::syncing(local);
-            let outcome = transfer::push(&mut opened, target, local, &step).await?;
+            let outcome = transfer::push(&mut opened, target, local, &step, &[]).await?;
             transfer::finish(step, &outcome, Direction::Push, &target.name);
             let warnings = opened.control.call(Request::Warnings).await;
             opened.control.close().await;

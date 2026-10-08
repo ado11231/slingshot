@@ -129,6 +129,11 @@ enum Commands {
         #[arg(long)]
         check: bool,
 
+        /// Settle files changed on both machines with the sending side's version, after
+        /// listing them and asking once.
+        #[arg(long, conflicts_with = "check")]
+        overwrite: bool,
+
         /// Project folder. Defaults to the current project.
         path: Option<PathBuf>,
     },
@@ -258,9 +263,12 @@ pub async fn run() {
         Commands::Tools => commands::tools::tools(cli.agent).await,
         Commands::Run { cmd } => commands::run::run(cli.agent, cmd).await,
         Commands::Attach { path } => commands::attach::attach(cli.agent, path).await,
-        Commands::Sync { pull, check, path } => {
-            commands::sync::sync(cli.agent, path, pull, check).await
-        }
+        Commands::Sync {
+            pull,
+            check,
+            overwrite,
+            path,
+        } => commands::sync::sync(cli.agent, path, pull, check, overwrite).await,
         Commands::Env { action } => match action {
             EnvAction::Add {
                 file,
@@ -425,9 +433,20 @@ mod tests {
             Commands::Sync {
                 pull: true,
                 check: true,
+                overwrite: false,
                 path: Some(_)
             }
         ));
+        let cli = Cli::try_parse_from(["slingshot", "sync", "--pull", "--overwrite"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Commands::Sync {
+                pull: true,
+                overwrite: true,
+                ..
+            }
+        ));
+        assert!(Cli::try_parse_from(["slingshot", "sync", "--overwrite", "--check"]).is_err());
         let cli = Cli::try_parse_from([
             "slingshot",
             "env",

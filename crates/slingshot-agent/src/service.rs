@@ -200,9 +200,13 @@ fn with_lease(
                 Err(error) => (Err(error), None),
             }
         }
-        Request::Finish { token, manifest } => match lease {
+        Request::Finish {
+            token,
+            manifest,
+            overwrite,
+        } => match lease {
             Some(lease) => (
-                projects::finish(root, lease, &token, manifest)
+                projects::finish(root, lease, &token, manifest, &overwrite)
                     .map(|changed| Response::Synced { changed }),
                 None,
             ),

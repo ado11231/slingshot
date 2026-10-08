@@ -180,6 +180,7 @@
   ```
 
 * Typing, colors, and Ctrl C work as they do locally. At the end, Slingshot shows the time taken and the exit code.
+* When the Agent may not know your terminal's type, such as Kitty's `xterm-kitty`, Slingshot sends it as `xterm-256color`, so nothing needs installing on the Agent.
 * Slingshot's own options go before `run`. Everything after `run` belongs to your command:
 
   ```sh

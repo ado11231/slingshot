@@ -169,7 +169,11 @@ impl RemoteCommand {
     /// connection becomes a `Disconnected` error and anything else is shown as before.
     pub async fn interactive(&self) -> anyhow::Result<i32> {
         let log = SshLog::create()?;
-        let mut child = Command::new("ssh")
+        let mut command = Command::new("ssh");
+        if let Ok(local) = std::env::var("TERM") {
+            command.env("TERM", remote_terminal(&local));
+        }
+        let mut child = command
             .arg("-E")
             .arg(&log.0)
             .args(self.to_ssh_args())
@@ -219,6 +223,28 @@ impl RemoteCommand {
             tokio::time::timeout(std::time::Duration::from_secs(15), status).await,
             Ok(Ok(status)) if status.success()
         )
+    }
+}
+
+/// Terminal types every system can describe. Others, such as `xterm-kitty` or
+/// `xterm-ghostty`, are often missing on the Agent, where tmux and full screen programs
+/// then refuse to start, so ssh sends `xterm-256color` for them instead.
+const UNIVERSAL_TERMINALS: &[&str] = &[
+    "xterm-256color",
+    "xterm",
+    "screen-256color",
+    "screen",
+    "tmux-256color",
+    "tmux",
+    "linux",
+    "vt100",
+    "dumb",
+];
+
+fn remote_terminal(local: &str) -> &str {
+    match UNIVERSAL_TERMINALS.contains(&local) {
+        true => local,
+        false => "xterm-256color",
     }
 }
 
@@ -458,6 +484,16 @@ mod tests {
         assert_eq!(argv[at + 1], "1455:localhost:1455");
         assert!(argv.contains(&"ExitOnForwardFailure=yes".to_string()));
         assert_eq!(argv.last().unwrap(), "echo hi");
+    }
+
+    #[test]
+    fn terminals_the_agent_may_not_know_are_sent_as_xterm_256color() {
+        for known in ["xterm-256color", "screen-256color", "tmux-256color", "dumb"] {
+            assert_eq!(remote_terminal(known), known);
+        }
+        for unknown in ["xterm-kitty", "xterm-ghostty", "alacritty", "wezterm", ""] {
+            assert_eq!(remote_terminal(unknown), "xterm-256color", "{unknown}");
+        }
     }
 
     /// Quote the known hosts path because SSH splits this option on whitespace.

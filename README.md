@@ -24,63 +24,81 @@
 
 ## Setup
 
-* The **Client** is the machine you work on. The **Agent** is the powerful machine.
+* The **Agent** is the powerful machine. The **Client** is the one you work on, such as your laptop.
+* Set up the Agent first, then the Client. Each takes a few minutes, mostly while Rust builds Slingshot.
 
-1. Install Slingshot on both machines. It needs Rust and `rsync`, and the Agent also needs `tmux` and an ssh server. See [A Linux Agent](#a-linux-agent) below, or the [install guide](docs/USAGE.md#install) for other systems.
+### 1. The Agent
 
-   ```sh
-   cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli
-   ```
+**1. Install what Slingshot needs.** These commands need an admin account (`sudo`). On Arch Linux:
 
-2. On the Agent, start Slingshot. The first time, it offers to start by itself at boot. Then it prints a pairing code.
+```sh
+sudo pacman -S --needed base-devel rsync tmux openssh rustup
+sudo systemctl enable --now sshd
+rustup default stable
+```
 
-   ```sh
-   slingshot start
-   ```
+* Ubuntu, Debian, Fedora, and a Mac as the Agent are in the [install guide](docs/USAGE.md#install).
+* Without `sudo`, ask an admin to run the first two lines. Check that everything is there with `command -v rsync tmux cargo`.
 
-3. On the Client, run the line it printed. Both machines must be on the same network or VPN for this step only.
+**2. Install Slingshot.**
 
-   ```sh
-   slingshot link 192.168.1.9:7433:K7QW9ZR2
-   ```
+```sh
+cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli
+```
 
-4. From a project folder on the Client, run anything on the Agent:
+**3. Check that it is found.**
 
-   ```sh
-   slingshot run cargo build
-   ```
+```sh
+slingshot --version
+```
 
-   `sling` is the short name, so `sling run cargo build` works too.
+If it says `command not found`, add Rust's folder to your PATH, then open a new terminal. Use `~/.zshrc` instead if your shell is zsh.
 
-### A Linux Agent
+```sh
+echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+```
 
-1. Install what Slingshot needs. On Arch Linux:
+**4. Start Slingshot.**
 
-   ```sh
-   sudo pacman -S --needed base-devel rsync tmux openssh rustup
-   rustup default stable
-   ```
+```sh
+slingshot start
+```
 
-   On Ubuntu or Debian:
+It checks the machine, offers to start by itself at boot, then prints a line such as `slingshot link 192.168.1.9:7433:K7QW9ZR2`. Keep it for the Client.
 
-   ```sh
-   sudo apt install build-essential rsync tmux openssh-server curl
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
+### 2. The Client
 
-2. Turn on the ssh server, which the Client uses to log in. It is `sshd` on Arch and Fedora, and `ssh` on Ubuntu and Debian.
+**1. Install Rust.** On a Mac:
 
-   ```sh
-   sudo systemctl enable --now sshd
-   ```
+```sh
+xcode-select --install
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
-3. Add Rust's folder to your PATH, so the `slingshot` command is found. Use `~/.zshrc` instead if your shell is zsh. Then open a new terminal.
+A Linux Client needs `rsync` and Rust, but not `tmux` or an ssh server. See the [install guide](docs/USAGE.md#install).
 
-   ```sh
-   echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-   ```
+**2. Install Slingshot and check it**, as on the Agent.
 
-4. ssh keys need no setup. `slingshot link` makes a key for the Client and installs it in the Agent's `~/.ssh/authorized_keys`, named so `slingshot unlink` can remove it. Password login is never used.
+```sh
+cargo install --locked --git https://github.com/ado11231/slingshot slingshot-cli
+slingshot --version
+```
+
+**3. Run the line the Agent printed.** Both machines must be on the same network or VPN for this step only.
+
+```sh
+slingshot link 192.168.1.9:7433:K7QW9ZR2
+```
+
+It pairs, offers to install the tools you use on the Agent, such as Claude Code, offers to sign in to them, and on a Mac adds the menu bar app. Each asks first.
+
+**4. Run anything on the Agent** from a project folder.
+
+```sh
+slingshot run cargo build
+```
+
+`sling` is the short name, so `sling run cargo build` works too.
 
 ## Commands
 

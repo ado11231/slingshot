@@ -269,6 +269,9 @@ pub async fn pull(
         }
         let applied_manifest = sync::merge(&local_manifest, &plan.changes, &snapshot.manifest);
         source::check_links(&applied_manifest, &rules)?;
+        if ignores_case(&local.root) {
+            refuse_case_clashes(&sync::case_clashes(&applied_manifest), &agent.name)?;
+        }
 
         let files = regular_files(&plan, &snapshot.manifest);
         storage::private_dir(&stage)?;
@@ -416,6 +419,55 @@ fn conflict_message(paths: &[String], agent: &str) -> String {
         .to_string(),
     );
     lines.join("\n")
+}
+
+/// Whether this disk treats names that differ only in case as one, found by asking for the
+/// project folder under its own name with one letter's case flipped.
+fn ignores_case(root: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Some(name) = root.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let flipped: String = match name.char_indices().find(|(_, c)| c.is_ascii_alphabetic()) {
+        Some((at, c)) => {
+            let swapped = match c.is_ascii_lowercase() {
+                true => c.to_ascii_uppercase(),
+                false => c.to_ascii_lowercase(),
+            };
+            format!("{}{swapped}{}", &name[..at], &name[at + 1..])
+        }
+        None => return false,
+    };
+    match (
+        std::fs::metadata(root),
+        std::fs::metadata(root.with_file_name(flipped)),
+    ) {
+        (Ok(real), Ok(other)) => real.ino() == other.ino() && real.dev() == other.dev(),
+        _ => false,
+    }
+}
+
+/// Refused like a conflict, so `attach` still opens the session. Nothing is changed.
+fn refuse_case_clashes(clashes: &[(String, String)], agent: &str) -> anyhow::Result<()> {
+    let Some((first, second)) = clashes.first() else {
+        return Ok(());
+    };
+    let mut lines = vec![format!("{first} and {second} differ only in case")];
+    lines.extend(
+        clashes[1..]
+            .iter()
+            .map(|(one, other)| format!("  Also {one} and {other}")),
+    );
+    lines.push("  This machine treats them as one file, so nothing was changed.".to_string());
+    lines.push(
+        presentation::row(
+            "Fix",
+            format!("rename or remove one of them on {agent}, then sync again"),
+        )
+        .trim_end()
+        .to_string(),
+    );
+    Err(Conflicts(lines.join("\n")).into())
 }
 
 fn regular_files(plan: &Plan, sender: &Manifest) -> Vec<String> {
@@ -630,6 +682,26 @@ mod tests {
             many.starts_with("2 files changed on both this machine and archbox\n  a.rs\n  b.rs\n")
         );
         assert!(many.contains("make each file match on both"));
+    }
+
+    #[test]
+    fn a_case_clash_names_both_files_and_the_fix() {
+        let clashes = [("NOTES.md".to_string(), "notes.md".to_string())];
+        let message = refuse_case_clashes(&clashes, "archbox")
+            .unwrap_err()
+            .to_string();
+        assert!(message.starts_with("NOTES.md and notes.md differ only in case\n"));
+        assert!(message.contains("rename or remove one of them on archbox"));
+        assert!(refuse_case_clashes(&[], "archbox").is_ok());
+    }
+
+    #[test]
+    fn this_disk_reports_whether_it_ignores_case() {
+        let dir = std::env::temp_dir().join(format!("CaseProbe{}", storage::new_id()));
+        std::fs::create_dir(&dir).unwrap();
+        let lower = dir.with_file_name(dir.file_name().unwrap().to_str().unwrap().to_lowercase());
+        assert_eq!(ignores_case(&dir), lower.exists());
+        std::fs::remove_dir(&dir).unwrap();
     }
 
     #[test]

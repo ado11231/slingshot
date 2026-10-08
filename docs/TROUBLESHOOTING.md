@@ -338,7 +338,7 @@
 
 ### Edits Not Pulled After Leaving
 
-* **Message:** `! Did not pull app: These paths changed differently on this machine and archbox`, where app is your project
+* **Message:** `! Did not bring back edits from archbox: These paths changed differently on this machine and archbox`, where archbox is your Agent
 * **Meaning:** You left the session, and the same files changed in both places. Nothing was overwritten. Both versions are kept.
 * **Fix:** Follow [Conflict](#conflict), then run `slingshot sync --pull`.
 

@@ -31,6 +31,16 @@ pub(crate) struct ProjectSession {
 
 /// Connect to the Agent and make sure the project has storage there.
 pub async fn open(agent: &Agent, local: &Local) -> anyhow::Result<ProjectSession> {
+    connect(agent, local, true).await
+}
+
+/// `open` without the "Connected" line, for a connection right after another one, such as
+/// bringing edits back when leaving a session.
+pub async fn open_quietly(agent: &Agent, local: &Local) -> anyhow::Result<ProjectSession> {
+    connect(agent, local, false).await
+}
+
+async fn connect(agent: &Agent, local: &Local, announce: bool) -> anyhow::Result<ProjectSession> {
     let id = project::identify(&project::client_root()?, &local.root, &agent.name)?;
     let connecting = client::connecting(agent);
     let mut control = Control::connect(agent).await?;
@@ -42,7 +52,10 @@ pub async fn open(agent: &Agent, local: &Local) -> anyhow::Result<ProjectSession
     let Response::Project(project) = control.call(Request::Open(reference)).await? else {
         return Err(unexpected());
     };
-    client::connected(connecting, agent);
+    match announce {
+        true => client::connected(connecting, agent),
+        false => connecting.clear(),
+    }
     Ok(ProjectSession {
         control,
         project,
@@ -60,6 +73,8 @@ pub enum Direction {
 pub struct SyncResult {
     pub changed: usize,
     pub kept: usize,
+    /// The paths a pull brought back, to name them. Empty after a push.
+    pub pulled: Vec<String>,
 }
 
 /// Finish or undo an interrupted pull on this machine before its source is read again.
@@ -183,6 +198,7 @@ pub async fn push(
         Ok(SyncResult {
             changed,
             kept: plan.kept.len(),
+            pulled: Vec::new(),
         })
     }
     .await;
@@ -194,14 +210,36 @@ pub fn syncing(local: &Local) -> Step {
     slingshot_core::step::start(format!("Syncing {}", local.name))
 }
 
-/// End a sync step with what changed.
-pub fn finish(step: Step, outcome: &SyncResult, direction: Direction) {
+/// End a sync step with what changed. A pull names what it brought back, since those are
+/// edits made somewhere else, such as by a coding agent.
+pub fn finish(step: Step, outcome: &SyncResult, direction: Direction, agent: &str) {
     let changes = presentation::plural(outcome.changed, "change");
     match (direction, outcome.changed) {
-        (_, 0) => step.done("Source up to date"),
+        (Direction::Push, 0) => step.done("Source up to date"),
         (Direction::Push, _) => step.done(format!("Synced {changes}")),
-        (Direction::Pull, _) => step.done(format!("Retrieved {changes}")),
+        (Direction::Pull, 0) => step.done(format!("No edits to bring back from {agent}")),
+        (Direction::Pull, count) => {
+            step.done(format!(
+                "Brought back {} from {agent}",
+                presentation::plural(count, "edit")
+            ));
+            let style = Style::stderr();
+            for line in named(&outcome.pulled) {
+                eprintln!("  {}", style.dim(line));
+            }
+        }
     }
+}
+
+/// How many paths a pull names before summing up the rest, so a large pull stays readable.
+const NAMED: usize = 5;
+
+fn named(paths: &[String]) -> Vec<String> {
+    let mut lines: Vec<String> = paths.iter().take(NAMED).cloned().collect();
+    if paths.len() > NAMED {
+        lines.push(format!("and {} more", paths.len() - NAMED));
+    }
+    lines
 }
 
 /// Copy Agent edits back to the Client, saying on `step` what is being copied.
@@ -274,6 +312,7 @@ pub async fn pull(
         Ok(SyncResult {
             changed: plan.changes.len(),
             kept: plan.kept.len(),
+            pulled: plan.changes.clone(),
         })
     }
     .await;
@@ -546,6 +585,16 @@ mod tests {
             executable: false,
             link: None,
         }
+    }
+
+    #[test]
+    fn a_pull_names_five_paths_then_sums_up_the_rest() {
+        let paths: Vec<String> = (1..=7).map(|n| format!("f{n}.rs")).collect();
+        assert_eq!(
+            named(&paths),
+            ["f1.rs", "f2.rs", "f3.rs", "f4.rs", "f5.rs", "and 2 more"]
+        );
+        assert_eq!(named(&paths[..2]), ["f1.rs", "f2.rs"]);
     }
 
     #[test]

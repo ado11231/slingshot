@@ -184,6 +184,18 @@ pub fn capacity(mib: u64) -> String {
 /// Ask once, where Enter means yes and a closed input means no.
 pub async fn confirm(question: String) -> anyhow::Result<bool> {
     eprint!("\n{question} [Y/n] ");
+    Ok(read_answer().await?.is_some_and(|answer| accepted(&answer)))
+}
+
+/// `confirm` for a step that deletes data: only `y` or `yes` goes ahead, and Enter declines.
+pub async fn confirm_deleting(question: String) -> anyhow::Result<bool> {
+    eprint!("\n{question} [y/N] ");
+    Ok(read_answer()
+        .await?
+        .is_some_and(|answer| accepted_deleting(&answer)))
+}
+
+async fn read_answer() -> anyhow::Result<Option<String>> {
     let answer = tokio::task::spawn_blocking(|| {
         let mut line = String::new();
         std::io::stdin()
@@ -194,7 +206,11 @@ pub async fn confirm(question: String) -> anyhow::Result<bool> {
     .context("Could not read the answer")?
     .context("Could not read the answer")?;
     eprintln!();
-    Ok(answer.is_some_and(|answer| accepted(&answer)))
+    Ok(answer)
+}
+
+fn accepted_deleting(answer: &str) -> bool {
+    accepted(answer) && !answer.trim().is_empty()
 }
 
 fn accepted(answer: &str) -> bool {
@@ -221,6 +237,10 @@ mod tests {
     #[test]
     fn enter_and_yes_accept_and_anything_else_declines() {
         assert!(accepted("\n"));
+        assert!(!accepted_deleting("\n"));
+        assert!(accepted_deleting("y\n"));
+        assert!(accepted_deleting(" YES "));
+        assert!(!accepted_deleting("no"));
         assert!(accepted("Y\n"));
         assert!(accepted(" yes "));
         assert!(!accepted("n\n"));

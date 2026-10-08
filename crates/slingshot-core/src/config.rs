@@ -93,7 +93,7 @@ impl Agent {
 
 /// The platform's config directory for slingshot. The only place that knows this
 /// path, so no OS specific path appears anywhere else.
-fn dir() -> anyhow::Result<PathBuf> {
+pub fn dir() -> anyhow::Result<PathBuf> {
     let Some(dirs) = ProjectDirs::from("", "", "slingshot") else {
         anyhow::bail!("Could not determine home directory");
     };
@@ -214,6 +214,11 @@ impl Config {
     }
 
     /// Write the config back out, creating the directory the first time.
+    /// The names of every linked Agent.
+    pub fn names(&self) -> Vec<String> {
+        self.agents.iter().map(|agent| agent.name.clone()).collect()
+    }
+
     pub fn save(&self) -> anyhow::Result<PathBuf> {
         let file = path()?;
 

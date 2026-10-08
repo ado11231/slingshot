@@ -114,12 +114,13 @@
 30. Sessions scroll without moving the cursor, keep a blue selection that a click ends, show the connection path in a colored bar, and start clear when you return to a prompt. Ctrl B, K clears everything.
 31. A pull refuses names that differ only in case, and `sync --overwrite` or `sync --pull --overwrite` keeps one side's version of a conflict, with a backup.
 32. The menu bar moves to a better connection within about a minute when one comes back.
+33. `slingshot uninstall` lists everything Slingshot keeps on a Client or an Agent, asks once with No as the default, and removes it, keeping the owner's own files and keys.
+34. `env add .env` needs no flags, `--version` names the commit, and the README sets up the Agent and the Client in separate, ordered sections.
 
 * **Remaining:**
 
 1. Automatic port forwarding, so the Agent's port 3000 appears at `localhost:3000` on the Client.
 2. Notifications when a server is ready and when a job waits for input.
-3. The rest of the fresh install findings: small output fixes (#93), one uninstall command (#91), and the README install steps split by machine (#92).
 
 ## Planned
 

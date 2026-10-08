@@ -207,6 +207,13 @@ fn session_exists(root: &Path, id: &str) -> bool {
 
 /// The shell, terminal, and input settings every Slingshot session gets. Sessions start
 /// from the daemon, so nothing here may depend on the daemon's own environment.
+/// The wheel goes to a program only when it asked for the mouse. Otherwise it scrolls the
+/// session's history, because tmux would turn it into arrow keys for a full screen program,
+/// which moves the cursor in a prompt such as Claude Code's.
+const WHEEL_UP: &str = "bind -n WheelUpPane if -F \"#{||:#{pane_in_mode},#{mouse_any_flag}}\" { send-keys -M } { copy-mode -e }";
+const WHEEL_DOWN: &str =
+    "bind -n WheelDownPane if -F \"#{||:#{pane_in_mode},#{mouse_any_flag}}\" { send-keys -M }";
+
 fn tmux_config(shell: &str, terminal: &str) -> String {
     [
         format!("set -g default-shell \"{shell}\""),
@@ -217,10 +224,16 @@ fn tmux_config(shell: &str, terminal: &str) -> String {
         "set -s set-clipboard on".to_string(),
         "set -g mouse on".to_string(),
         "set -g history-limit 50000".to_string(),
+        "set -g mode-style \"bg=blue,fg=white\"".to_string(),
+        WHEEL_UP.to_string(),
+        WHEEL_DOWN.to_string(),
+        "bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-no-clear".to_string(),
+        "bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-no-clear".to_string(),
+        "bind k send-keys -R \\; clear-history \\; send-keys C-l".to_string(),
         "set -g status-style \"bg=default,fg=colour245\"".to_string(),
         "set -g status-left-length 80".to_string(),
         "set -g status-left \"#{@slingshot} \"".to_string(),
-        "set -g status-right \"Ctrl B, D to detach \"".to_string(),
+        "set -g status-right \"#[fg=default,bold]Ctrl B, D#[default] to detach \"".to_string(),
         "set -g window-status-format \"\"".to_string(),
         "set -g window-status-current-format \"\"".to_string(),
     ]
@@ -340,7 +353,8 @@ pub fn project_link(home: &Path, name: &str, id: &str, target: &Path) -> anyhow:
     bail!("Could not make a link to {name} in {}", folder.display())
 }
 
-/// What the bar at the bottom of a session shows: where the work runs.
+/// What the bar at the bottom of a session shows until the Client replaces it with the
+/// colored label that also names the connection, each time it attaches.
 fn session_label(agent: &str, place: &str) -> String {
     format!("▶ {agent} · {place}").replace('#', "")
 }
@@ -600,6 +614,12 @@ mod tests {
             "set -as terminal-features \",*:RGB\"",
             "set -s escape-time 10",
             "set -g mouse on",
+            "set -g mode-style \"bg=blue,fg=white\"",
+            WHEEL_UP,
+            WHEEL_DOWN,
+            "bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-no-clear",
+            "bind -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-no-clear",
+            "bind k send-keys -R \\; clear-history \\; send-keys C-l",
         ] {
             assert!(
                 config.lines().any(|l| l == line),
@@ -651,12 +671,6 @@ mod tests {
     }
 
     #[test]
-    fn the_bar_says_where_the_session_runs() {
-        assert_eq!(session_label("archbox", "home"), "▶ archbox · home");
-        assert_eq!(session_label("archbox", "app#1"), "▶ archbox · app1");
-    }
-
-    #[test]
     fn sessions_find_tools_in_the_per_user_folders() {
         let home = Path::new("/home/someone");
         let variables = session_environment(home);
@@ -669,6 +683,12 @@ mod tests {
             path.starts_with("/home/someone/.local/bin:/home/someone/.cargo/bin"),
             "{path}"
         );
+    }
+
+    #[test]
+    fn the_bar_says_where_the_session_runs() {
+        assert_eq!(session_label("archbox", "home"), "▶ archbox · home");
+        assert_eq!(session_label("archbox", "app#1"), "▶ archbox · app1");
     }
 
     #[test]

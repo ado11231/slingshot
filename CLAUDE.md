@@ -312,8 +312,8 @@
 
 ## 15. Current State
 
-* **Phases 1 and 3 are complete.** Phase 4, reaching the Agent from any network, is in final testing. Phase 5 is in progress: the menu bar app and notifications are built, and automatic port forwarding is not.
-* **Next:** the cleanup listed in issue #51, then port forwarding (#9), then local models (#20, #38 to #40).
+* **Phases 1, 3, and 4 are complete.** Phase 5 is in progress: the menu bar app, notifications, and the fixes from the October 7, 2026 fresh install test are built, and automatic port forwarding is not.
+* **Next:** the remaining fresh install findings (#87, #89, #90, #93, #91, #92), then port forwarding (#9), then local models (#20, #38 to #40).
 * **All tests, formatting, and Clippy pass on `master`.** CI checks every pull request on Linux and macOS.
 * **The rename from borrow has no migration.** Both machines must run `slingshot link` again after updating.
 * Everything under [known limitations](docs/ROADMAP.md#known-limitations) does not work yet. Never describe it as working.

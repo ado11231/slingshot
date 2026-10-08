@@ -414,6 +414,7 @@ slingshot/
 | `runner.rs` | `slingshot internal-run`: runs one command in the project copy with a real terminal. | `jobs`, `projects`, `service` | Client `lib` |
 | `clients.rs` | The Clients allowed to connect over iroh, and their names for the start screen. | none | `lib`, `service`, `tunnel` |
 | `tunnel.rs` | The iroh endpoint, which passes paired Clients to the local ssh server. | `clients` | `lib` |
+| `uninstall.rs` | What `slingshot uninstall` removes on an Agent: the boot service, running work, Client access, the `~/Slingshot` links, and the Agent's data. | `boot`, `jobs`, `service` | Client `uninstall` |
 | `awake.rs` | Keeps the Agent awake while the daemon runs, and checks whether sleep is turned off. | none | `lib` |
 | `boot.rs` | Starting by itself: writes the systemd user service or launchd agent, runs the service manager, and removes both. | none | `lib` |
 
@@ -450,7 +451,7 @@ slingshot/
 | --- | --- | --- |
 | `link.rs` | `slingshot link` | `client`, `keys`, `project`, `menubar`, `tools` |
 | `tools.rs` | `slingshot tools`, and the tools step at the end of `link` | `client`, `project`, `route`, `ssh`, `run` |
-| `uninstall.rs` | `slingshot uninstall`: the Client's settings, key, menu bar app, and links | `keys`, `menubar`, `unlink` |
+| `uninstall.rs` | `slingshot uninstall`: the Client's settings, key, menu bar app, and links, plus the Agent's part when this machine is one | `keys`, `menubar`, `unlink`, Agent `uninstall` |
 | `unlink.rs` | `slingshot unlink` | `client`, `project`, `ssh` |
 | `run.rs` | `slingshot run` | `client`, `project`, `route`, `ssh`, `transfer` |
 | `attach.rs` | `slingshot attach` | `client`, `project`, `route`, `ssh`, `transfer`, `run` |

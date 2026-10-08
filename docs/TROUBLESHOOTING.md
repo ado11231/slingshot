@@ -503,6 +503,12 @@
 * **Meaning:** `slingshot unlink` will not run while a job is active. `slingshot uninstall` stops before removing anything else, with `Nothing else was removed`.
 * **Fix:** Stop each job with `slingshot stop <id>`, then unlink or uninstall again.
 
+### Running In A Terminal
+
+* **Message:** `Slingshot is running in a terminal on this machine. Stop it with Ctrl C there`
+* **Meaning:** `slingshot uninstall` found `slingshot start` running by hand, which would recreate files as they are removed.
+* **Fix:** Press Ctrl C where `slingshot start` runs, then run `slingshot uninstall` again.
+
 ### Uninstall Needs A Terminal
 
 * **Message:** `Run slingshot uninstall in a terminal to confirm, since it deletes files`

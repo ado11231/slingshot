@@ -395,7 +395,7 @@ slingshot menubar --remove
 ## Remove Slingshot
 
 * To stop using one Agent, run `slingshot unlink` on the Client. It removes this machine's key and environment files from the Agent, and forgets it. Project copies on the Agent are kept.
-* To remove Slingshot from the Client completely:
+* To remove Slingshot from a machine completely, run `slingshot uninstall` on it. On the Client:
 
 1. Stop any running jobs with `slingshot stop <id>`. Unlinking will not run while a job is active.
 2. Run:
@@ -408,4 +408,14 @@ slingshot menubar --remove
 4. It unlinks each Agent, then removes the rest. An Agent it cannot reach is reported with the line to delete there by hand.
 5. Remove the program itself with `cargo uninstall slingshot-cli`.
 
-* To stop the Agent itself, run `slingshot start --remove` on the Agent if it starts by itself. Otherwise press Ctrl C where `slingshot start` is running.
+* On the Agent, the same command also lists and removes:
+
+1. The boot service, stopped first so nothing recreates files.
+2. Running sessions and runs.
+3. The access each linked Client has, in `~/.ssh/authorized_keys`. Your own keys stay.
+4. The `~/Slingshot` links. Files of your own there are kept.
+5. The project copies, with their size, including any edits not brought back to their Client. Bring those back with `slingshot sync --pull` first.
+
+* If `slingshot start` is running in a terminal, stop it with Ctrl C first.
+* On Linux, linger stays on, since other services may need it. Turn it off with `sudo loginctl disable-linger $USER` if nothing else does.
+* To only stop the Agent, run `slingshot start --remove` if it starts by itself, or press Ctrl C where `slingshot start` is running.

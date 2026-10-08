@@ -9,6 +9,7 @@ pub mod projects;
 pub mod runner;
 pub mod service;
 pub mod tunnel;
+pub mod uninstall;
 
 use anyhow::Context;
 use slingshot_core::keys;

@@ -156,13 +156,19 @@ pub async fn remove() -> anyhow::Result<i32> {
     if !presentation::confirm("Remove the boot service?".to_string()).await? {
         return Ok(0);
     }
-    if let Err(error) = run(&command) {
+    remove_service()?;
+    presentation::success("Slingshot no longer starts by itself");
+    Ok(0)
+}
+
+/// Stop the service and delete its file, without asking. Callers ask first.
+pub fn remove_service() -> anyhow::Result<()> {
+    let file = file()?;
+    if let Err(error) = run(&removal()) {
         presentation::warning(format!("{error:#}"));
     }
     std::fs::remove_file(&file)
-        .with_context(|| format!("Could not delete {}. Delete it by hand", file.display()))?;
-    presentation::success("Slingshot no longer starts by itself");
-    Ok(0)
+        .with_context(|| format!("Could not delete {}. Delete it by hand", file.display()))
 }
 
 fn run(command: &[String]) -> anyhow::Result<()> {

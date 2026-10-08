@@ -60,17 +60,15 @@ pub async fn attach(
     remote.tty = true;
     remote.quiet = true;
     let lost = format!(
-        "Lost connection to {}. The session keeps running there. Run slingshot attach again to return to it",
-        target.name
+        "Lost connection to {}. The session keeps running there\n{}",
+        target.name,
+        presentation::row("Return", "slingshot attach").trim_end()
     );
     let code = super::run::interact(target, &remote, lost).await?;
     if pulls_after(code)
         && let Err(error) = after_leaving(target, local.as_ref(), &session.job.id).await
     {
-        presentation::warning(format!(
-            "Did not bring back edits from {}: {error:#}",
-            target.name
-        ));
+        presentation::warning(format!("Did not bring back edits: {error:#}"));
     }
     Ok(code)
 }

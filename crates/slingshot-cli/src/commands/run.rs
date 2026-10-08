@@ -101,7 +101,13 @@ pub async fn interact(target: &Agent, remote: &RemoteCommand, lost: String) -> a
 /// stops it once it notices, and sessions are the way to outlive a disconnect.
 fn lost_connection(name: &str) -> String {
     format!(
-        "Lost connection to {name}. The Agent stops the run once it notices, unless it finishes first. See how it ended with slingshot ps --all, and use slingshot attach for work that must survive a disconnect"
+        "Lost connection to {name}\n  The Agent stops the run once it notices, unless it finishes first.\n{}{}",
+        presentation::row("See how", "slingshot ps --all"),
+        presentation::row(
+            "Next time",
+            "slingshot attach keeps work running through a disconnect"
+        )
+        .trim_end()
     )
 }
 
@@ -209,7 +215,7 @@ mod tests {
     fn a_lost_connection_names_the_agent_and_where_to_look() {
         let message = lost_connection("archbox");
         assert!(
-            message.starts_with("Lost connection to archbox."),
+            message.starts_with("Lost connection to archbox\n"),
             "{message}"
         );
         assert!(message.contains("slingshot ps --all"), "{message}");
